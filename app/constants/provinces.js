@@ -1,14 +1,14 @@
-const PROVINCES = {
-  PUNJAB: { code: '01', name: 'Punjab' },
-  SINDH: { code: '02', name: 'Sindh' },
-  KPK: { code: '03', name: 'Khyber Pakhtunkhwa' },
-  BALOCHISTAN: { code: '04', name: 'Balochistan' },
-  ICT: { code: '05', name: 'Islamabad Capital Territory' },
-  GILGIT_BALTISTAN: { code: '06', name: 'Gilgit-Baltistan' },
-  AJK: { code: '07', name: 'Azad Jammu and Kashmir' }
-};
+const PROVINCES = [
+  { label: 'Punjab', value: 'Punjab' },
+  { label: 'Sindh', value: 'Sindh' },
+  { label: 'Khyber Pakhtunkhwa', value: 'Khyber Pakhtunkhwa' },
+  { label: 'Balochistan', value: 'Balochistan' },
+  { label: 'Islamabad Capital Territory', value: 'Islamabad Capital Territory' },
+  { label: 'Gilgit-Baltistan', value: 'Gilgit-Baltistan' },
+  { label: 'Azad Jammu and Kashmir', value: 'Azad Jammu and Kashmir' }
+];
 
-const PROVINCE_ENUM = Object.values(PROVINCES).map(province => province.name);
+const PROVINCE_ENUM = PROVINCES.map(province => province.value);
 
 module.exports = {
   PROVINCES,

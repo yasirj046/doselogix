@@ -1,74 +1,56 @@
 const mongoose = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate-v2");
-const { PROVINCE_ENUM } = require("../constants/provinces");
-const { ALL_CITIES } = require("../constants/cities");
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const brandSchema = new mongoose.Schema(
   {
-    // Multi-tenant support
-    companyId: {
+    // Reference to vendor/user
+    vendorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Company',
-      required: [true, 'Company ID is required'],
+      ref: 'User',
+      required: [true, 'Vendor ID is required'],
       index: true
     },
-    brandId: { 
-      type: String, 
-      required: [true, 'Brand ID is required'], 
+    
+    // Brand identification
+    brandSeq: {
+      type: Number,
       unique: true
     },
-    name: { 
-      type: String, 
+    brandCode: {
+      type: String,
+      unique: true
+    },
+    
+    // Basic brand information
+    brandName: {
+      type: String,
       required: [true, 'Brand name is required'],
       trim: true,
-      minlength: [2, 'Brand name must be at least 2 characters'],
       maxlength: [200, 'Brand name cannot exceed 200 characters']
     },
-    province: { 
-      type: String, 
-      required: [true, 'Province is required'],
-      enum: {
-        values: PROVINCE_ENUM,
-        message: 'Invalid province selected'
-      }
-    },
-    city: { 
-      type: String, 
-      required: [true, 'City is required'],
-      enum: {
-        values: ALL_CITIES,
-        message: 'Invalid city selected'
-      }
-    },
-    address: { 
-      type: String, 
+    
+    // Location information
+    address: {
+      type: String,
       required: [true, 'Address is required'],
       trim: true,
-      minlength: [10, 'Address must be at least 10 characters'],
       maxlength: [500, 'Address cannot exceed 500 characters']
     },
-    primaryContact: { 
-      type: String, 
-      required: [true, 'Primary contact is required'],
+    
+    // Contact information
+    primaryContact: {
+      type: String,
       trim: true,
-      validate: {
-        validator: function(v) {
-          return /^\+92[0-9]{10}$/.test(v);
-        },
-        message: 'Primary contact must be in format +92XXXXXXXXXX'
-      }
+      maxlength: [20, 'Primary contact cannot exceed 20 characters']
     },
-    secondaryContact: { 
-      type: String, 
-      required: [true, 'Secondary contact is required'],
+    secondaryContact: {
+      type: String,
       trim: true,
-      validate: {
-        validator: function(v) {
-          return /^\+92[0-9]{10}$/.test(v);
-        },
-        message: 'Secondary contact must be in format +92XXXXXXXXXX'
-      }
+      maxlength: [20, 'Secondary contact cannot exceed 20 characters']
     },
+    
+    // System fields
     isActive: {
       type: Boolean,
       default: true
@@ -77,19 +59,33 @@ const brandSchema = new mongoose.Schema(
   {
     timestamps: true,
     toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
+// Add pagination plugin
 brandSchema.plugin(mongoosePaginate);
 
-// Enhanced indexing for better performance
-// Text search index for name, city, and province
-brandSchema.index({ name: "text", city: "text", province: "text", address: "text" });
+// Add compound indexes for better performance
+brandSchema.index({ vendorId: 1, brandCode: 1 }, { unique: true });
 
-// Note: brandId already has unique index from unique: true field definition
+// Pre-save middleware to generate brandCode
+brandSchema.pre('save', async function(next) {
+  if (!this.brandCode) {
+    this.brandCode = `BRAND-${this.brandSeq}`;
+  }
+  next();
+});
 
-// Compound indexes for common query patterns
-brandSchema.index({ province: 1, city: 1, isActive: 1 });
-brandSchema.index({ isActive: 1, createdAt: -1 });
+// Static method to find brands by vendor
+brandSchema.statics.findBrandsByVendor = async function(vendorId, options = {}) {
+  const query = { vendorId };
+  
+  if (typeof options.isActive === 'boolean') {
+    query.isActive = options.isActive;
+  }
+  
+  return await this.find(query);
+};
 
-module.exports = mongoose.model("Brand", brandSchema);
+module.exports = mongoose.model("Brand", brandSchema); 

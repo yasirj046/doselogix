@@ -2,73 +2,84 @@ const User = require("../models/userModel");
 
 exports.findByEmail = async (email) => {
   try {
-    // Case-insensitive email search
-    return await User.findOne({ 
-      email: { $regex: new RegExp(`^${email}$`, 'i') }
+    // Since vendorEmail has lowercase: true in schema, we need to search with lowercase
+    // Use exact match for better performance and reliability
+    const searchEmail = email.toLowerCase().trim();
+    
+    const result = await User.findOne({ 
+      vendorEmail: searchEmail
     });
+    
+    return result;
   } catch (error) {
     console.error('Error in findByEmail:', error);
     throw error;
   }
 };
 
-exports.getAllUsers = async (page, limit, keyword) => {
+exports.getAllVendors = async (page, limit, keyword) => {
   try {
     let query = {};
     if (keyword && keyword !== "") {
       query.$or = [
-        { name: { $regex: keyword, $options: 'i' } },
-        { email: { $regex: keyword, $options: 'i' } }
+        { vendorName: { $regex: keyword, $options: 'i' } },
+        { vendorEmail: { $regex: keyword, $options: 'i' } }, // Keep regex for search functionality
+        { businessName: { $regex: keyword, $options: 'i' } }
       ];
     }
     return await User.paginate(query, { 
       page, 
       limit,
-      select: '-password' // Exclude password from results
+      select: '-vendorPassword' // Exclude password from results
     });
   } catch (error) {
-    console.error('Error in getAllUsers:', error);
+    console.error('Error in getAllVendors:', error);
     throw error;
   }
 };
 
-exports.getUserById = async (id) => {
+exports.getVendorById = async (id) => {
   try {
-    return await User.findById(id).select('-password');
+    return await User.findById(id).select('-vendorPassword');
   } catch (error) {
-    console.error('Error in getUserById:', error);
+    console.error('Error in getVendorById:', error);
     throw error;
   }
 };
 
-exports.createUser = async (userData) => {
+exports.createVendor = async (vendorData) => {
   try {
-    const user = new User(userData);
-    await user.save();
-    return user;
+    const vendor = new User(vendorData);
+    
+    // Password will be hashed by pre-save middleware
+    // No need to call hashPassword() manually
+    
+    await vendor.save();
+    
+    return vendor;
   } catch (error) {
-    console.error('Error in createUser:', error);
+    console.error('Error in createVendor:', error);
     throw error;
   }
 };
 
-exports.updateUser = async (id, userData) => {
+exports.updateVendor = async (id, vendorData) => {
   try {
-    return await User.findByIdAndUpdate(id, userData, { 
+    return await User.findByIdAndUpdate(id, vendorData, { 
       new: true,
-      select: '-password'
+      select: '-vendorPassword'
     });
   } catch (error) {
-    console.error('Error in updateUser:', error);
+    console.error('Error in updateVendor:', error);
     throw error;
   }
 };
 
-exports.deleteUser = async (id) => {
+exports.deleteVendor = async (id) => {
   try {
     return await User.findByIdAndDelete(id);
   } catch (error) {
-    console.error('Error in deleteUser:', error);
+    console.error('Error in deleteVendor:', error);
     throw error;
   }
 };
@@ -81,3 +92,28 @@ exports.findById = async (id) => {
     throw error;
   }
 };
+
+exports.findActiveVendors = async () => {
+  try {
+    return await User.find({ isActive: true }).select('-vendorPassword');
+  } catch (error) {
+    console.error('Error in findActiveVendors:', error);
+    throw error;
+  }
+};
+
+exports.findVendorsWithExpiringLicense = async (daysBefore = 30) => {
+  try {
+    return await User.findVendorsWithExpiringLicense(daysBefore);
+  } catch (error) {
+    console.error('Error in findVendorsWithExpiringLicense:', error);
+    throw error;
+  }
+};
+
+// Keep backward compatibility methods
+exports.getAllUsers = exports.getAllVendors;
+exports.getUserById = exports.getVendorById;
+exports.createUser = exports.createVendor;
+exports.updateUser = exports.updateVendor;
+exports.deleteUser = exports.deleteVendor;

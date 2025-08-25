@@ -1,20 +1,22 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const brandController = require("../controllers/brandController");
-const { authenticate } = require("../middleware/authMiddleware");
+const brandController = require('../controllers/brandController');
+const { authenticate } = require('../middleware/authMiddleware');
+const { multiTenancy, ensureVendorOwnership } = require('../middleware/multiTenancyMiddleware');
 
-// Public routes (constants)
-router.get("/constants", brandController.getConstants);
-router.get("/constants/cities/:province", brandController.getCitiesByProvince);
+// Create a new brand
+router.post('/', authenticate, multiTenancy, brandController.createBrand);
 
-// Protected routes
-router.post("/", authenticate, brandController.createBrand);
-router.get("/", authenticate, brandController.getAllBrands);
-router.get("/province/:province", authenticate, brandController.getBrandsByProvince);
-router.get("/city/:city", authenticate, brandController.getBrandsByCity);
-router.get("/brand-id/:brandId", authenticate, brandController.getBrandByBrandId);
-router.get("/:id", authenticate, brandController.getBrandById);
-router.put("/:id", authenticate, brandController.updateBrand);
-router.delete("/:id", authenticate, brandController.deleteBrand);
+// Get all brands with pagination
+router.get('/', authenticate, multiTenancy, brandController.getAllBrands);
 
-module.exports = router;
+// Get a single brand by ID
+router.get('/:id', authenticate, multiTenancy, brandController.getBrandById);
+
+// Update a brand
+router.put('/:id', authenticate, multiTenancy, brandController.updateBrand);
+
+// Toggle brand active status
+router.patch('/:id/toggle-status', authenticate, multiTenancy, brandController.toggleBrandStatus);
+
+module.exports = router; 

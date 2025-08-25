@@ -1,119 +1,77 @@
-const Brand = require("../models/brandModel");
-const BrandCounter = require("../models/brandCounterModel");
-const { PROVINCES } = require("../constants/provinces");
-const { CITIES } = require("../constants/cities");
+const Brand = require('../models/brandModel');
 
-// Generate unique brand ID
-const generateBrandId = async (province, city) => {
+exports.getAllBrands = async (page, limit, keyword, vendorId) => {
   try {
-    // Find province code
-    const provinceEntry = Object.values(PROVINCES).find(p => p.name === province);
-    if (!provinceEntry) {
-      throw new Error("Invalid province");
-    }
-
-    // Find city code
-    const cityEntry = CITIES[province] && CITIES[province][city];
-    if (!cityEntry) {
-      throw new Error("Invalid city for the selected province");
-    }
-
-    // Get next sequence number for this province
-    const counter = await BrandCounter.findOneAndUpdate(
-      { province },
-      { $inc: { sequence: 1 } },
-      { new: true, upsert: true }
-    );
-
-    // Format: provinceCode + cityCode + provinceSequence (padded to 2 digits)
-    const brandId = `${provinceEntry.code}${cityEntry.code}${counter.sequence.toString().padStart(2, '0')}`;
+    const query = { vendorId };
     
-    return brandId;
+    if (keyword) {
+      query.$or = [
+        { brandName: { $regex: keyword, $options: 'i' } },
+        { brandCode: { $regex: keyword, $options: 'i' } }
+      ];
+    }
+
+    const options = {
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 10,
+      sort: { createdAt: -1 }
+    };
+
+    return await Brand.paginate(query, options);
   } catch (error) {
     throw error;
   }
 };
 
-exports.createBrand = async (brandData) => {
+exports.getBrandById = async (id) => {
   try {
-    const brandId = await generateBrandId(brandData.province, brandData.city);
+    const brand = await Brand.findById(id);
+    if (!brand) {
+      throw new Error('Brand not found');
+    }
+    return brand;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.createBrand = async (vendorId, brandData) => {
+  try {
     const brand = new Brand({
-      ...brandData,
-      brandId
+      vendorId,
+      ...brandData
     });
+    
     return await brand.save();
   } catch (error) {
     throw error;
   }
 };
 
-exports.getAllBrands = async (page, limit, keyword, status = "active") => {
-  let query = {};
-  
-  // Handle status filter
-  if (status === "active") {
-    query.isActive = true;
-  } else if (status === "inactive") {
-    query.isActive = false;
+exports.updateBrand = async (vendorId, brandId, updateData) => {
+  try {
+    const brand = await Brand.findOne({ _id: brandId, vendorId });
+    if (!brand) {
+      throw new Error('Brand not found');
+    }
+
+    Object.assign(brand, updateData);
+    return await brand.save();
+  } catch (error) {
+    throw error;
   }
-  // If status === "all", no filter applied
-  
-  if (keyword !== "") {
-    query.$text = { $search: keyword };
+};
+
+exports.toggleBrandStatus = async (vendorId, brandId) => {
+  try {
+    const brand = await Brand.findOne({ _id: brandId, vendorId });
+    if (!brand) {
+      throw new Error('Brand not found');
+    }
+
+    brand.isActive = !brand.isActive;
+    return await brand.save();
+  } catch (error) {
+    throw error;
   }
-  
-  return await Brand.paginate(query, { 
-    page, 
-    limit, 
-    sort: { createdAt: -1 }
-  });
-};
-
-exports.getBrandById = async (id) => {
-  return await Brand.findOne({ _id: id });
-};
-
-exports.getBrandByBrandId = async (brandId) => {
-  return await Brand.findOne({ brandId, isActive: true });
-};
-
-exports.updateBrand = async (id, brandData) => {
-  // Remove brandId from update data to prevent modification
-  const { brandId, ...updateData } = brandData;
-  return await Brand.findOneAndUpdate(
-    { _id: id }, 
-    updateData, 
-    { new: true }
-  );
-};
-
-exports.deleteBrand = async (id) => {
-  // Soft delete - mark as inactive
-  return await Brand.findByIdAndUpdate(
-    id, 
-    { isActive: false }, 
-    { new: true }
-  );
-};
-
-exports.getBrandsByProvince = async (province) => {
-  return await Brand.find({ province, isActive: true }).sort({ createdAt: -1 });
-};
-
-exports.getBrandsByCity = async (city) => {
-  return await Brand.find({ city, isActive: true }).sort({ createdAt: -1 });
-};
-
-exports.restoreBrand = async (id) => {
-  // Restore soft-deleted brand
-  return await Brand.findByIdAndUpdate(
-    id, 
-    { isActive: true }, 
-    { new: true }
-  );
-};
-
-exports.getDeletedBrands = async () => {
-  // Get all soft-deleted brands
-  return await Brand.find({ isActive: false }).sort({ createdAt: -1 });
-};
+}; 

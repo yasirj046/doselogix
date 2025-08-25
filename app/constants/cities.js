@@ -1,96 +1,80 @@
-const CITIES = {
+const CITIES = [
   // Punjab Cities
-  'Punjab': {
-    'Lahore': { code: '11', name: 'Lahore' },
-    'Faisalabad': { code: '13', name: 'Faisalabad' },
-    'Rawalpindi': { code: '14', name: 'Rawalpindi' },
-    'Gujranwala': { code: '15', name: 'Gujranwala' },
-    'Multan': { code: '16', name: 'Multan' },
-    'Sialkot': { code: '17', name: 'Sialkot' },
-    'Bahawalpur': { code: '18', name: 'Bahawalpur' },
-    'Sargodha': { code: '19', name: 'Sargodha' },
-    'Sheikhupura': { code: '20', name: 'Sheikhupura' }
-  },
+  { label: 'Lahore', value: 'Lahore', province: 'Punjab' },
+  { label: 'Faisalabad', value: 'Faisalabad', province: 'Punjab' },
+  { label: 'Rawalpindi', value: 'Rawalpindi', province: 'Punjab' },
+  { label: 'Gujranwala', value: 'Gujranwala', province: 'Punjab' },
+  { label: 'Multan', value: 'Multan', province: 'Punjab' },
+  { label: 'Sialkot', value: 'Sialkot', province: 'Punjab' },
+  { label: 'Bahawalpur', value: 'Bahawalpur', province: 'Punjab' },
+  { label: 'Sargodha', value: 'Sargodha', province: 'Punjab' },
+  { label: 'Sheikhupura', value: 'Sheikhupura', province: 'Punjab' },
   
   // Sindh Cities
-  'Sindh': {
-    'Karachi': { code: '21', name: 'Karachi' },
-    'Hyderabad': { code: '22', name: 'Hyderabad' },
-    'Sukkur': { code: '23', name: 'Sukkur' },
-    'Larkana': { code: '24', name: 'Larkana' },
-    'Nawabshah': { code: '25', name: 'Nawabshah' },
-    'Mirpurkhas': { code: '26', name: 'Mirpurkhas' },
-    'Jacobabad': { code: '27', name: 'Jacobabad' },
-    'Shikarpur': { code: '28', name: 'Shikarpur' },
-    'Khairpur': { code: '29', name: 'Khairpur' },
-    'Dadu': { code: '30', name: 'Dadu' }
-  },
+  { label: 'Karachi', value: 'Karachi', province: 'Sindh' },
+  { label: 'Hyderabad', value: 'Hyderabad', province: 'Sindh' },
+  { label: 'Sukkur', value: 'Sukkur', province: 'Sindh' },
+  { label: 'Larkana', value: 'Larkana', province: 'Sindh' },
+  { label: 'Nawabshah', value: 'Nawabshah', province: 'Sindh' },
+  { label: 'Mirpurkhas', value: 'Mirpurkhas', province: 'Sindh' },
+  { label: 'Jacobabad', value: 'Jacobabad', province: 'Sindh' },
+  { label: 'Shikarpur', value: 'Shikarpur', province: 'Sindh' },
+  { label: 'Khairpur', value: 'Khairpur', province: 'Sindh' },
+  { label: 'Dadu', value: 'Dadu', province: 'Sindh' },
   
   // Khyber Pakhtunkhwa Cities
-  'Khyber Pakhtunkhwa': {
-    'Peshawar': { code: '31', name: 'Peshawar' },
-    'Mardan': { code: '32', name: 'Mardan' },
-    'Mingora': { code: '33', name: 'Mingora' },
-    'Kohat': { code: '34', name: 'Kohat' },
-    'Dera Ismail Khan': { code: '35', name: 'Dera Ismail Khan' },
-    'Bannu': { code: '36', name: 'Bannu' },
-    'Abbottabad': { code: '37', name: 'Abbottabad' },
-    'Swat': { code: '38', name: 'Swat' },
-    'Chitral': { code: '39', name: 'Chitral' },
-    'Karak': { code: '40', name: 'Karak' }
-  },
+  { label: 'Peshawar', value: 'Peshawar', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Mardan', value: 'Mardan', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Mingora', value: 'Mingora', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Kohat', value: 'Kohat', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Dera Ismail Khan', value: 'Dera Ismail Khan', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Bannu', value: 'Bannu', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Abbottabad', value: 'Abbottabad', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Swat', value: 'Swat', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Chitral', value: 'Chitral', province: 'Khyber Pakhtunkhwa' },
+  { label: 'Karak', value: 'Karak', province: 'Khyber Pakhtunkhwa' },
   
   // Balochistan Cities
-  'Balochistan': {
-    'Quetta': { code: '41', name: 'Quetta' },
-    'Gwadar': { code: '42', name: 'Gwadar' },
-    'Turbat': { code: '43', name: 'Turbat' },
-    'Khuzdar': { code: '44', name: 'Khuzdar' },
-    'Chaman': { code: '45', name: 'Chaman' },
-    'Hub': { code: '46', name: 'Hub' },
-    'Sibi': { code: '47', name: 'Sibi' },
-    'Zhob': { code: '48', name: 'Zhob' },
-    'Kalat': { code: '49', name: 'Kalat' },
-    'Mastung': { code: '50', name: 'Mastung' }
-  },
+  { label: 'Quetta', value: 'Quetta', province: 'Balochistan' },
+  { label: 'Gwadar', value: 'Gwadar', province: 'Balochistan' },
+  { label: 'Turbat', value: 'Turbat', province: 'Balochistan' },
+  { label: 'Khuzdar', value: 'Khuzdar', province: 'Balochistan' },
+  { label: 'Chaman', value: 'Chaman', province: 'Balochistan' },
+  { label: 'Hub', value: 'Hub', province: 'Balochistan' },
+  { label: 'Sibi', value: 'Sibi', province: 'Balochistan' },
+  { label: 'Zhob', value: 'Zhob', province: 'Balochistan' },
+  { label: 'Kalat', value: 'Kalat', province: 'Balochistan' },
+  { label: 'Mastung', value: 'Mastung', province: 'Balochistan' },
   
   // Islamabad Capital Territory
-  'Islamabad Capital Territory': {
-    'Islamabad': { code: '51', name: 'Islamabad' }
-  },
+  { label: 'Islamabad', value: 'Islamabad', province: 'Islamabad Capital Territory' },
   
   // Gilgit-Baltistan Cities
-  'Gilgit-Baltistan': {
-    'Gilgit': { code: '61', name: 'Gilgit' },
-    'Skardu': { code: '62', name: 'Skardu' },
-    'Hunza': { code: '63', name: 'Hunza' },
-    'Ghanche': { code: '64', name: 'Ghanche' },
-    'Shigar': { code: '65', name: 'Shigar' },
-    'Nagar': { code: '66', name: 'Nagar' },
-    'Ghizer': { code: '67', name: 'Ghizer' }
-  },
+  { label: 'Gilgit', value: 'Gilgit', province: 'Gilgit-Baltistan' },
+  { label: 'Skardu', value: 'Skardu', province: 'Gilgit-Baltistan' },
+  { label: 'Hunza', value: 'Hunza', province: 'Gilgit-Baltistan' },
+  { label: 'Ghanche', value: 'Ghanche', province: 'Gilgit-Baltistan' },
+  { label: 'Shigar', value: 'Shigar', province: 'Gilgit-Baltistan' },
+  { label: 'Nagar', value: 'Nagar', province: 'Gilgit-Baltistan' },
+  { label: 'Ghizer', value: 'Ghizer', province: 'Gilgit-Baltistan' },
   
   // Azad Jammu and Kashmir Cities
-  'Azad Jammu and Kashmir': {
-    'Muzaffarabad': { code: '71', name: 'Muzaffarabad' },
-    'Mirpur': { code: '72', name: 'Mirpur' },
-    'Rawalakot': { code: '73', name: 'Rawalakot' },
-    'Kotli': { code: '74', name: 'Kotli' },
-    'Bhimber': { code: '75', name: 'Bhimber' },
-    'Bagh': { code: '76', name: 'Bagh' },
-    'Neelum': { code: '77', name: 'Neelum' }
-  }
-};
+  { label: 'Muzaffarabad', value: 'Muzaffarabad', province: 'Azad Jammu and Kashmir' },
+  { label: 'Mirpur', value: 'Mirpur', province: 'Azad Jammu and Kashmir' },
+  { label: 'Rawalakot', value: 'Rawalakot', province: 'Azad Jammu and Kashmir' },
+  { label: 'Kotli', value: 'Kotli', province: 'Azad Jammu and Kashmir' },
+  { label: 'Bhimber', value: 'Bhimber', province: 'Azad Jammu and Kashmir' },
+  { label: 'Bagh', value: 'Bagh', province: 'Azad Jammu and Kashmir' },
+  { label: 'Neelum', value: 'Neelum', province: 'Azad Jammu and Kashmir' }
+];
 
 // Generate city enums for each province
 const getCitiesByProvince = (provinceName) => {
-  return CITIES[provinceName] ? Object.values(CITIES[provinceName]).map(city => city.name) : [];
+  return CITIES.filter(city => city.province === provinceName).map(city => city.value);
 };
 
 // Get all cities as a flat array
-const ALL_CITIES = Object.values(CITIES).reduce((acc, provinceCities) => {
-  return acc.concat(Object.values(provinceCities).map(city => city.name));
-}, []);
+const ALL_CITIES = CITIES.map(city => city.value);
 
 module.exports = {
   CITIES,

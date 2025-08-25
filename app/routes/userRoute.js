@@ -12,6 +12,7 @@ router.use(authenticate);
 
 // Profile management
 router.get("/profile", userController.getProfile);
+router.get("/profile-settings", userController.getProfileSettings);
 router.put("/profile", userController.updateProfile);
 router.post("/change-password", userController.changePassword);
 
