@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const mongoosePaginate = require("mongoose-paginate-v2");
-const AutoIncrement = require('mongoose-sequence')(mongoose);
 
+// Explicitly disable auto-increment for this schema
 const brandSchema = new mongoose.Schema(
   {
     // Reference to vendor/user
@@ -13,14 +13,14 @@ const brandSchema = new mongoose.Schema(
     },
     
     // Brand identification
-    brandSeq: {
-      type: Number,
-      unique: true
-    },
-    brandCode: {
-      type: String,
-      unique: true
-    },
+    // brandSeq: {
+    //   type: Number,
+    //   unique: true
+    // },
+    // brandCode: {
+    //   type: String,
+    //   unique: true
+    // },
     
     // Basic brand information
     brandName: {
@@ -59,23 +59,35 @@ const brandSchema = new mongoose.Schema(
   {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toObject: { virtuals: true },
+    // Explicitly disable auto-increment
+    _id: true,
+    autoIncrement: false
   }
 );
 
 // Add pagination plugin
 brandSchema.plugin(mongoosePaginate);
 
-// Add compound indexes for better performance
-brandSchema.index({ vendorId: 1, brandCode: 1 }, { unique: true });
-
-// Pre-save middleware to generate brandCode
-brandSchema.pre('save', async function(next) {
-  if (!this.brandCode) {
-    this.brandCode = `BRAND-${this.brandSeq}`;
+// Pre-save middleware to ensure brandSeq doesn't get set
+brandSchema.pre('save', function(next) {
+  // Remove brandSeq if it exists to prevent index conflicts
+  if (this.brandSeq !== undefined) {
+    this.brandSeq = undefined;
   }
   next();
 });
+
+// Add compound indexes for better performance
+brandSchema.index({ vendorId: 1});
+
+// Pre-save middleware to generate brandCode
+// brandSchema.pre('save', async function(next) {
+//   if (!this.brandCode) {
+//     this.brandCode = `BRAND-${this.brandSeq}`;
+//   }
+//   next();
+// });
 
 // Static method to find brands by vendor
 brandSchema.statics.findBrandsByVendor = async function(vendorId, options = {}) {

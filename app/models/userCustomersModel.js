@@ -15,16 +15,6 @@ const userCustomersSchema = new mongoose.Schema(
       index: true
     },
     
-    // Customer identification
-    customerSeq: {
-      type: Number,
-      unique: true
-    },
-    customerCode: {
-      type: String,
-      unique: true
-    },
-    
     // Basic customer information
     customerName: {
       type: String,
@@ -123,26 +113,27 @@ const userCustomersSchema = new mongoose.Schema(
 userCustomersSchema.plugin(mongoosePaginate);
 
 // Add compound indexes for better performance
-userCustomersSchema.index({ vendorId: 1, customerCode: 1 }, { unique: true });
-userCustomersSchema.index({ vendorId: 1, isActive: 1 });
-userCustomersSchema.index({ customerName: "text", customerCode: "text" });
+userCustomersSchema.index({ vendorId: 1 ,customerName: 1 }, { unique: true });
+// userCustomersSchema.index({ vendorId: 1, isActive: 1 });
+userCustomersSchema.index({ customerName: "text"}); //, customerCode: "text" 
+// userCustomersSchema.index({ customerName: "text" });
 userCustomersSchema.index({ customerProvince: 1, customerCity: 1 });
 userCustomersSchema.index({ customerCategory: 1 });
 userCustomersSchema.index({ customerLicenseExpiryDate: 1 });
 
 // Configure auto-incrementing sequence
-userCustomersSchema.plugin(AutoIncrement, {
-  inc_field: 'customerSeq',
-  start_seq: 1000
-});
+// userCustomersSchema.plugin(AutoIncrement, {
+//   inc_field: 'customerSeq',
+//   start_seq: 1000
+// });
 
 // Pre-save hook to generate customerCode from sequence
-userCustomersSchema.pre('save', function(next) {
-  if (this.isNew) {
-    this.customerCode = `CUST-${this.customerSeq}`;
-  }
-  next();
-});
+// userCustomersSchema.pre('save', function(next) {
+//   if (this.isNew && !this.customerCode && this.customerSeq) {
+//     this.customerCode = `CUST-${this.customerSeq}`;
+//   }
+//   next();
+// });
 
 // Virtual for customer license status
 userCustomersSchema.virtual('customerLicenseStatus').get(function() {

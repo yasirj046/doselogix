@@ -25,6 +25,8 @@
     "pharmaceutical-dms": "file:.."
   },
   "devDependencies": {
+    "@babel/core": "^7.28.3",
+    "@babel/eslint-parser": "^7.28.0",
     "nodemon": "^3.1.10"
   }
 }

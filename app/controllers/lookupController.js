@@ -35,3 +35,127 @@ exports.getCustomerCategories = async (req, res) => {
     res.status(200).json(util.createResponse([], error));
   }
 }; 
+
+exports.getDesignations = async (req, res) => {
+  try {
+    const designations = await lookupService.getDesignations();
+    res.status(200).json(util.createResponse(designations, null, "All Designations"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getAllCities = async (req, res) => {
+  try {
+    const cities = await lookupService.getAllCities();
+    res.status(200).json(util.createResponse(cities, null, "All Cities"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+}; 
+
+exports.getAreasByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const areas = await lookupService.getAreasByVendor(vendorId);
+    res.status(200).json(util.createResponse(areas, null, "Vendor Areas"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getSubAreasByArea = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { area } = req.query;
+    const subareas = await lookupService.getSubAreasByArea(vendorId, area);
+    res.status(200).json(util.createResponse(subareas, null, "Sub Areas"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+}; 
+
+// Product-related lookup controllers
+exports.getBrandsByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const brands = await lookupService.getBrandsByVendor(vendorId);
+    res.status(200).json(util.createResponse(brands, null, "Vendor Brands"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getGroupsByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId } = req.query;
+    const groups = await lookupService.getGroupsByVendor(vendorId, brandId);
+    res.status(200).json(util.createResponse(groups, null, "Vendor Groups"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getGroupsByBrand = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId } = req.query;
+    
+    if (!brandId) {
+      return res.status(400).json(
+        util.createResponse(null, { message: "Brand ID is required" })
+      );
+    }
+    
+    const groups = await lookupService.getGroupsByBrand(vendorId, brandId);
+    res.status(200).json(util.createResponse(groups, null, "Groups by Brand"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getUniqueGroupNames = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId } = req.query;
+    const groups = await lookupService.getUniqueGroupNames(vendorId, brandId);
+    res.status(200).json(util.createResponse(groups, null, "Unique Group Names"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getSubGroupsByGroup = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { groupName, brandId } = req.query;
+    
+    if (!groupName) {
+      return res.status(400).json(
+        util.createResponse(null, { message: "Group name is required" })
+      );
+    }
+    
+    const subGroups = await lookupService.getSubGroupsByGroup(vendorId, groupName, brandId);
+    res.status(200).json(util.createResponse(subGroups, null, "Sub Groups"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getProductsByFilters = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId, groupId } = req.query;
+    
+    const filters = {};
+    if (brandId) filters.brandId = brandId;
+    if (groupId) filters.groupId = groupId;
+    
+    const products = await lookupService.getProductsByFilters(vendorId, filters);
+    res.status(200).json(util.createResponse(products, null, "Products by Filters"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+}; 

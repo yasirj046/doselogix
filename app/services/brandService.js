@@ -1,31 +1,46 @@
 const Brand = require('../models/brandModel');
 
-exports.getAllBrands = async (page, limit, keyword, vendorId) => {
+exports.getAllBrands = async (page, limit, keyword, status, vendorId) => {
   try {
-    const query = { vendorId };
+    let query = {};
     
-    if (keyword) {
+    // Filter by vendor if provided
+    if (vendorId) {
+      query.vendorId = vendorId;
+    }
+    
+    // Filter by status if provided
+    if (status && status !== "") {
+      query.isActive = status === "Active";
+    }
+    
+    if (keyword && keyword !== "") {
       query.$or = [
         { brandName: { $regex: keyword, $options: 'i' } },
-        { brandCode: { $regex: keyword, $options: 'i' } }
+        { address: { $regex: keyword, $options: 'i' } },
+        { primaryContact: { $regex: keyword, $options: 'i' } }
       ];
     }
 
-    const options = {
-      page: parseInt(page) || 1,
-      limit: parseInt(limit) || 10,
-      sort: { createdAt: -1 }
-    };
-
-    return await Brand.paginate(query, options);
+    return await Brand.paginate(query, { 
+      page, 
+      limit,
+      sort: { createdAt: -1 },
+      populate: {
+        path: 'vendorId',
+        select: 'vendorName vendorEmail'
+      }
+    });
   } catch (error) {
+    console.error('Error in getAllBrands:', error);
     throw error;
   }
 };
 
-exports.getBrandById = async (id) => {
+exports.getBrandById = async (id, vendorId) => {
   try {
-    const brand = await Brand.findById(id);
+    const brand = await Brand.findOne({ _id: id, vendorId })
+      .populate('vendorId', 'vendorName vendorEmail');
     if (!brand) {
       throw new Error('Brand not found');
     }
@@ -42,8 +57,10 @@ exports.createBrand = async (vendorId, brandData) => {
       ...brandData
     });
     
-    return await brand.save();
+    const savedBrand = await brand.save();
+    return savedBrand;
   } catch (error) {
+    console.error('Error creating brand:', error);
     throw error;
   }
 };

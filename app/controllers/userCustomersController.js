@@ -7,12 +7,13 @@ exports.getAllCustomers = async (req, res) => {
   const keyword = req.query.keyword || "";
   const customerProvince = req.query.customerProvince || "";
   const customerCity = req.query.customerCity || "";
+  const status = req.query.status || "";
   
   // Use vendor ID from middleware instead of query parameter
   const vendorId = req.vendor.id;
 
   try {
-    const customers = await userCustomersService.getAllCustomers(page, limit, keyword, vendorId, customerProvince, customerCity);
+    const customers = await userCustomersService.getAllCustomers(page, limit, keyword, vendorId, customerProvince, customerCity, status);
     res.status(200).json(util.createResponse(customers, null, "All Customers"));
   } catch (error) {
     res.status(200).json(util.createResponse([], error));
@@ -105,7 +106,7 @@ exports.updateCustomer = async (req, res) => {
     delete updateData._id;
     delete updateData.__v;
     delete updateData.createdAt;
-    delete updateData.customerCode; // Prevent customerCode from being updated since it's auto-generated
+    // delete updateData.customerCode; // Prevent customerCode from being updated since it's auto-generated
 
     // Handle date conversion if provided
     if (updateData.customerLicenseExpiryDate) {

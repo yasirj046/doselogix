@@ -5,6 +5,10 @@ const userRoutes = require('./app/routes/userRoute');
 const userCustomersRoutes = require('./app/routes/userCustomersRoute');
 const lookupRoutes = require('./app/routes/lookupRoute');
 const brandRoutes = require('./app/routes/brandRoute');
+const employeeRoutes = require('./app/routes/employeeRoute');
+const areaRoutes = require('./app/routes/areaRoute');
+const groupRoutes = require('./app/routes/groupRoute');
+const productRoutes = require('./app/routes/productRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 
@@ -41,6 +45,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/customers', userCustomersRoutes);
 app.use('/api/lookup', lookupRoutes);
 app.use('/api/brands', brandRoutes);
+app.use('/api/employees', employeeRoutes);
+app.use('/api/areas', areaRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/products', productRoutes);
 
 mongoose
   .connect(

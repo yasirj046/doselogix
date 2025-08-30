@@ -41,7 +41,7 @@ const seedUserCustomers = async () => {
     const saadCustomers = [
       {
         vendorId: saadVendor._id,
-        customerCode: "SAAD-001",
+        // customerCode: "SAAD-001",
         customerName: "City Hospital Pharmacy",
         customerProvince: "Punjab",
         customerCity: "Lahore",

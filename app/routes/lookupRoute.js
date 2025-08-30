@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const lookupController = require("../controllers/lookupController");
+const { authenticate } = require('../middleware/authMiddleware');
+const { multiTenancy } = require('../middleware/multiTenancyMiddleware');
 
 // Get all provinces
 router.get("/provinces", lookupController.getAllProvinces);
@@ -10,5 +12,23 @@ router.get("/cities", lookupController.getCitiesByProvince);
 
 // Get all customer categories
 router.get("/categories", lookupController.getCustomerCategories);
+
+// Get all designations
+router.get("/designations", lookupController.getDesignations);
+
+// Get all cities
+router.get("/all-cities", lookupController.getAllCities);
+
+// Area lookups (require authentication)
+router.get("/areas", authenticate, multiTenancy, lookupController.getAreasByVendor);
+router.get("/subareas", authenticate, multiTenancy, lookupController.getSubAreasByArea);
+
+// Product-related lookups (require authentication)
+router.get("/brands", authenticate, multiTenancy, lookupController.getBrandsByVendor);
+router.get("/groups", authenticate, multiTenancy, lookupController.getGroupsByVendor);
+router.get("/groups-by-brand", authenticate, multiTenancy, lookupController.getGroupsByBrand);
+router.get("/unique-groups", authenticate, multiTenancy, lookupController.getUniqueGroupNames);
+router.get("/subgroups", authenticate, multiTenancy, lookupController.getSubGroupsByGroup);
+router.get("/products", authenticate, multiTenancy, lookupController.getProductsByFilters);
 
 module.exports = router; 

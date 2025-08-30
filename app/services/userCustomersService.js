@@ -1,6 +1,6 @@
 const UserCustomers = require("../models/userCustomersModel");
 
-exports.getAllCustomers = async (page, limit, keyword, vendorId, customerProvince, customerCity) => {
+exports.getAllCustomers = async (page, limit, keyword, vendorId, customerProvince, customerCity, status) => {
   try {
     let query = {};
     
@@ -17,6 +17,11 @@ exports.getAllCustomers = async (page, limit, keyword, vendorId, customerProvinc
     // Filter by city if provided
     if (customerCity && customerCity !== "") {
       query.customerCity = customerCity;
+    }
+    
+    // Filter by status if provided
+    if (status && status !== "") {
+      query.isActive = status === "active";
     }
     
     // Search functionality - only search in name and primary contact
