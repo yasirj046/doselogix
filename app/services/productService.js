@@ -86,17 +86,15 @@ exports.getProductById = async (id, vendorId) => {
 
 exports.createProduct = async (productData) => {
   try {
-    // Check if product with same name already exists for this vendor, brand, group, and subgroup
+    // Check if product with same name already exists for this vendor and brand
     const existingProduct = await Product.findOne({
       vendorId: productData.vendorId,
       brandId: productData.brandId,
-      groupId: productData.groupId,
-      subGroupId: productData.subGroupId,
       productName: productData.productName
     });
 
     if (existingProduct) {
-      throw new Error(`Product with name "${productData.productName}" already exists for this brand, group, and subgroup`);
+      throw new Error(`Product with name "${productData.productName}" already exists for this brand`);
     }
 
     const product = new Product(productData);
@@ -126,14 +124,12 @@ exports.updateProduct = async (vendorId, productId, updateData) => {
       const existingProduct = await Product.findOne({
         vendorId,
         brandId: updateData.brandId || product.brandId,
-        groupId: updateData.groupId || product.groupId,
-        subGroupId: updateData.subGroupId || product.subGroupId,
         productName: updateData.productName,
         _id: { $ne: productId }
       });
 
       if (existingProduct) {
-        throw new Error(`Product with name "${updateData.productName}" already exists for this brand, group, and subgroup`);
+        throw new Error(`Product with name "${updateData.productName}" already exists for this brand`);
       }
     }
 

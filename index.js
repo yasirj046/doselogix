@@ -11,6 +11,9 @@ const subAreaRoutes = require('./app/routes/subAreaRoute');
 const groupRoutes = require('./app/routes/groupRoute');
 const subGroupRoutes = require('./app/routes/subGroupRoute');
 const productRoutes = require('./app/routes/productRoute');
+const purchaseEntryRoutes = require('./app/routes/purchaseEntryRoute');
+const purchaseProductRoutes = require('./app/routes/purchaseProductRoute');
+const inventoryRoutes = require('./app/routes/inventoryRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 
@@ -53,6 +56,9 @@ app.use('/api/subareas', subAreaRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/subgroups', subGroupRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/purchase-entries', purchaseEntryRoutes);
+app.use('/api/purchase-products', purchaseProductRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 mongoose
   .connect(

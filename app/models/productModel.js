@@ -23,7 +23,6 @@ const productSchema = new mongoose.Schema(
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Group',
-      required: [true, 'Group ID is required'],
       index: true
     },
     
@@ -31,7 +30,6 @@ const productSchema = new mongoose.Schema(
     subGroupId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'SubGroup',
-      required: [true, 'Sub Group ID is required'],
       index: true
     },
     
@@ -80,8 +78,8 @@ productSchema.index({ vendorId: 1, groupId: 1 });
 productSchema.index({ productName: "text" });
 productSchema.index({ vendorId: 1, isActive: 1 });
 
-// Compound unique index to prevent duplicate product names for the same vendor, brand, group, and subgroup
-productSchema.index({ vendorId: 1, brandId: 1, groupId: 1, subGroupId: 1, productName: 1 }, { unique: true });
+// Compound unique index to prevent duplicate product names for the same vendor and brand
+productSchema.index({ vendorId: 1, brandId: 1, productName: 1 }, { unique: true });
 
 // Virtual for full product display name
 productSchema.virtual('fullProductName').get(function() {

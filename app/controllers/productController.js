@@ -49,7 +49,7 @@ exports.createProduct = async (req, res) => {
     const productData = { ...req.body, vendorId };
 
     // Validation
-    const requiredFields = ['brandId', 'groupId', 'subGroupId', 'productName', 'packingSize', 'cartonSize'];
+    const requiredFields = ['brandId', 'productName', 'packingSize', 'cartonSize'];
     const missingFields = requiredFields.filter(field => !productData[field]);
     
     if (missingFields.length > 0) {
@@ -82,7 +82,7 @@ exports.updateProduct = async (req, res) => {
     const updateData = req.body;
 
     // Validation for required fields if they're being updated
-    const requiredFields = ['brandId', 'groupId', 'subGroupId', 'productName', 'packingSize', 'cartonSize'];
+    const requiredFields = ['brandId', 'productName', 'packingSize', 'cartonSize'];
     for (const field of requiredFields) {
       if (updateData.hasOwnProperty(field) && (!updateData[field] || updateData[field].toString().trim() === '')) {
         return res.status(400).json(
