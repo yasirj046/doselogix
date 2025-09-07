@@ -35,57 +35,47 @@ const seedAreas = async () => {
       return process.exit();
     }
 
-    // Sample areas data
+    // Sample areas data (updated to remove subArea)
     const areasData = [
       {
         vendorId: defaultVendor._id,
         area: "Downtown",
-        subArea: "Business District",
-      },
-      {
-        vendorId: defaultVendor._id,
-        area: "Downtown",
-        subArea: "Shopping Mall",
       },
       {
         vendorId: defaultVendor._id,
         area: "Residential Zone",
-        subArea: "Sector A",
-      },
-      {
-        vendorId: defaultVendor._id,
-        area: "Residential Zone",
-        subArea: "Sector B",
       },
       {
         vendorId: defaultVendor._id,
         area: "Industrial Area",
-        subArea: "Phase 1",
-      },
-      {
-        vendorId: defaultVendor._id,
-        area: "Industrial Area",
-        subArea: "Phase 2",
       },
       {
         vendorId: defaultVendor._id,
         area: "Market Area",
-        subArea: "Local Market",
       },
       {
         vendorId: defaultVendor._id,
-        area: "Market Area",
-        subArea: "Wholesale Market",
+        area: "Educational District",
+      },
+      {
+        vendorId: defaultVendor._id,
+        area: "Commercial Zone",
+      },
+      {
+        vendorId: defaultVendor._id,
+        area: "Healthcare District",
+      },
+      {
+        vendorId: defaultVendor._id,
+        area: "Entertainment Zone",
       },
       {
         vendorId: defaultVendor._id,
         area: "University Town",
-        subArea: "Campus Area",
       },
       {
         vendorId: defaultVendor._id,
-        area: "University Town",
-        subArea: "Hostels",
+        area: "Shopping District",
       }
     ];
 
@@ -95,7 +85,7 @@ const seedAreas = async () => {
     
     // Log the created areas
     insertedAreas.forEach(area => {
-      console.log(`- ${area.area} - ${area.subArea}`);
+      console.log(`- ${area.area}`);
     });
 
   } catch (error) {

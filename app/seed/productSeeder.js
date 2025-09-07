@@ -1,6 +1,7 @@
 const Product = require('../models/productModel');
 const Brand = require('../models/brandModel');
 const Group = require('../models/groupModel');
+const SubGroup = require('../models/subGroupModel');
 const User = require('../models/userModel');
 
 const productSeeder = async () => {
@@ -12,13 +13,14 @@ const productSeeder = async () => {
       return;
     }
 
-    // Get all vendors, brands, and groups for seeding
+    // Get all vendors, brands, groups, and subgroups for seeding
     const vendors = await User.find({ vendorRole: 'vendor' }).limit(5);
     const brands = await Brand.find().limit(10);
     const groups = await Group.find().limit(20);
+    const subGroups = await SubGroup.find().limit(50);
 
-    if (vendors.length === 0 || brands.length === 0 || groups.length === 0) {
-      console.log('No vendors, brands, or groups found. Please seed vendors, brands, and groups first.');
+    if (vendors.length === 0 || brands.length === 0 || groups.length === 0 || subGroups.length === 0) {
+      console.log('No vendors, brands, groups, or subgroups found. Please seed them first.');
       return;
     }
 
@@ -122,37 +124,41 @@ const productSeeder = async () => {
 
     const productsToInsert = [];
 
-    // Create products for each vendor-brand-group combination
+    // Create products for each vendor-brand-group-subgroup combination
     for (const vendor of vendors) {
       for (const brand of brands.filter(b => b.vendorId.toString() === vendor._id.toString())) {
         for (const group of groups.filter(g => g.vendorId.toString() === vendor._id.toString() && g.brandId.toString() === brand._id.toString())) {
-          // Add 2-3 products per group
-          const productCount = Math.floor(Math.random() * 2) + 2;
-          
-          for (let i = 0; i < productCount && i < sampleProducts.length; i++) {
-            const sampleProduct = sampleProducts[(productsToInsert.length + i) % sampleProducts.length];
+          for (const subGroup of subGroups.filter(sg => sg.vendorId.toString() === vendor._id.toString() && sg.groupId.toString() === group._id.toString())) {
+            // Add 1-2 products per subgroup
+            const productCount = Math.floor(Math.random() * 2) + 1;
             
-            // Create unique product name by adding group reference
-            const uniqueProductName = `${sampleProduct.productName} - ${group.subGroup}`;
-            
-            // Check if this exact combination already exists
-            const existingProduct = await Product.findOne({
-              vendorId: vendor._id,
-              brandId: brand._id,
-              groupId: group._id,
-              productName: uniqueProductName
-            });
-
-            if (!existingProduct) {
-              productsToInsert.push({
+            for (let i = 0; i < productCount && i < sampleProducts.length; i++) {
+              const sampleProduct = sampleProducts[(productsToInsert.length + i) % sampleProducts.length];
+              
+              // Create unique product name by adding subgroup reference
+              const uniqueProductName = `${sampleProduct.productName} - ${subGroup.subGroupName}`;
+              
+              // Check if this exact combination already exists
+              const existingProduct = await Product.findOne({
                 vendorId: vendor._id,
                 brandId: brand._id,
                 groupId: group._id,
-                productName: uniqueProductName,
-                packingSize: sampleProduct.packingSize,
-                cartonSize: sampleProduct.cartonSize,
-                isActive: Math.random() > 0.1 // 90% chance of being active
+                subGroupId: subGroup._id,
+                productName: uniqueProductName
               });
+
+              if (!existingProduct) {
+                productsToInsert.push({
+                  vendorId: vendor._id,
+                  brandId: brand._id,
+                  groupId: group._id,
+                  subGroupId: subGroup._id,
+                  productName: uniqueProductName,
+                  packingSize: sampleProduct.packingSize,
+                  cartonSize: sampleProduct.cartonSize,
+                  isActive: Math.random() > 0.1 // 90% chance of being active
+                });
+              }
             }
           }
         }

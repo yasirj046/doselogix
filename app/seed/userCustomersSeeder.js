@@ -2,6 +2,50 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const User = require("../models/userModel");
 const UserCustomers = require("../models/userCustomersModel");
+const Area = require("../models/areaModel");
+const SubArea = require("../models/subAreaModel");
+
+// Helper function to find or create area
+const findOrCreateArea = async (vendorId, areaName) => {
+  let area = await Area.findOne({ 
+    vendorId, 
+    area: { $regex: new RegExp(`^${areaName}$`, 'i') } 
+  });
+  
+  if (!area) {
+    area = new Area({
+      vendorId,
+      area: areaName,
+      isActive: true
+    });
+    await area.save();
+  }
+  
+  return area;
+};
+
+// Helper function to find or create subarea
+const findOrCreateSubArea = async (vendorId, areaId, subAreaName) => {
+  if (!subAreaName) return null;
+  
+  let subArea = await SubArea.findOne({ 
+    vendorId, 
+    areaId,
+    subAreaName: { $regex: new RegExp(`^${subAreaName}$`, 'i') } 
+  });
+  
+  if (!subArea) {
+    subArea = new SubArea({
+      vendorId,
+      areaId,
+      subAreaName,
+      isActive: true
+    });
+    await subArea.save();
+  }
+  
+  return subArea;
+};
 
 const seedUserCustomers = async () => {
   mongoose
@@ -393,8 +437,29 @@ const seedUserCustomers = async () => {
       }
     ];
 
-    await UserCustomers.insertMany(saadCustomers);
-    console.log(`${saadCustomers.length} customers created for Saad`);
+    // Process each customer individually to convert area/subarea strings to ObjectIds
+    const processedSaadCustomers = [];
+    for (const customerData of saadCustomers) {
+      // Find or create area
+      const area = await findOrCreateArea(customerData.vendorId, customerData.customerArea);
+      
+      // Find or create subarea if provided
+      const subArea = customerData.customerSubArea 
+        ? await findOrCreateSubArea(customerData.vendorId, area._id, customerData.customerSubArea)
+        : null;
+
+      // Update customer data with ObjectIds
+      const processedCustomer = {
+        ...customerData,
+        customerArea: area._id,
+        customerSubArea: subArea ? subArea._id : undefined
+      };
+
+      processedSaadCustomers.push(processedCustomer);
+    }
+
+    await UserCustomers.insertMany(processedSaadCustomers);
+    console.log(`${processedSaadCustomers.length} customers created for Saad`);
   } else {
     console.log("Customers for Saad already exist");
   }
@@ -484,8 +549,29 @@ const seedUserCustomers = async () => {
       }
     ];
 
-    await UserCustomers.insertMany(yasirCustomers);
-    console.log(`${yasirCustomers.length} customers created for Yasir`);
+    // Process each customer individually to convert area/subarea strings to ObjectIds
+    const processedYasirCustomers = [];
+    for (const customerData of yasirCustomers) {
+      // Find or create area
+      const area = await findOrCreateArea(customerData.vendorId, customerData.customerArea);
+      
+      // Find or create subarea if provided
+      const subArea = customerData.customerSubArea 
+        ? await findOrCreateSubArea(customerData.vendorId, area._id, customerData.customerSubArea)
+        : null;
+
+      // Update customer data with ObjectIds
+      const processedCustomer = {
+        ...customerData,
+        customerArea: area._id,
+        customerSubArea: subArea ? subArea._id : undefined
+      };
+
+      processedYasirCustomers.push(processedCustomer);
+    }
+
+    await UserCustomers.insertMany(processedYasirCustomers);
+    console.log(`${processedYasirCustomers.length} customers created for Yasir`);
   } else {
     console.log("Customers for Yasir already exist");
   }

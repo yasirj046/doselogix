@@ -1,6 +1,6 @@
 const Product = require('../models/productModel');
 
-exports.getAllProducts = async (page, limit, keyword, status, vendorId, brandId, groupId) => {
+exports.getAllProducts = async (page, limit, keyword, status, vendorId, brandId, groupId, subGroupId) => {
   try {
     let query = {};
     
@@ -22,6 +22,11 @@ exports.getAllProducts = async (page, limit, keyword, status, vendorId, brandId,
     // Filter by group if provided
     if (groupId && groupId !== "") {
       query.groupId = groupId;
+    }
+    
+    // Filter by subgroup if provided
+    if (subGroupId && subGroupId !== "") {
+      query.subGroupId = subGroupId;
     }
     
     // Search by keyword in product name and packaging details
@@ -48,7 +53,11 @@ exports.getAllProducts = async (page, limit, keyword, status, vendorId, brandId,
         },
         {
           path: 'groupId',
-          select: 'group subGroup'
+          select: 'groupName'
+        },
+        {
+          path: 'subGroupId',
+          select: 'subGroupName'
         }
       ]
     });
@@ -63,7 +72,8 @@ exports.getProductById = async (id, vendorId) => {
     const product = await Product.findOne({ _id: id, vendorId })
       .populate('vendorId', 'vendorName vendorEmail')
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup');
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName');
       
     if (!product) {
       throw new Error('Product not found');
@@ -76,16 +86,17 @@ exports.getProductById = async (id, vendorId) => {
 
 exports.createProduct = async (productData) => {
   try {
-    // Check if product with same name already exists for this vendor, brand, and group
+    // Check if product with same name already exists for this vendor, brand, group, and subgroup
     const existingProduct = await Product.findOne({
       vendorId: productData.vendorId,
       brandId: productData.brandId,
       groupId: productData.groupId,
+      subGroupId: productData.subGroupId,
       productName: productData.productName
     });
 
     if (existingProduct) {
-      throw new Error(`Product with name "${productData.productName}" already exists for this brand and group`);
+      throw new Error(`Product with name "${productData.productName}" already exists for this brand, group, and subgroup`);
     }
 
     const product = new Product(productData);
@@ -95,7 +106,8 @@ exports.createProduct = async (productData) => {
     return await Product.findById(savedProduct._id)
       .populate('vendorId', 'vendorName vendorEmail')
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup');
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName');
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
@@ -115,12 +127,13 @@ exports.updateProduct = async (vendorId, productId, updateData) => {
         vendorId,
         brandId: updateData.brandId || product.brandId,
         groupId: updateData.groupId || product.groupId,
+        subGroupId: updateData.subGroupId || product.subGroupId,
         productName: updateData.productName,
         _id: { $ne: productId }
       });
 
       if (existingProduct) {
-        throw new Error(`Product with name "${updateData.productName}" already exists for this brand and group`);
+        throw new Error(`Product with name "${updateData.productName}" already exists for this brand, group, and subgroup`);
       }
     }
 
@@ -131,7 +144,8 @@ exports.updateProduct = async (vendorId, productId, updateData) => {
     return await Product.findById(updatedProduct._id)
       .populate('vendorId', 'vendorName vendorEmail')
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup');
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName');
   } catch (error) {
     throw error;
   }
@@ -151,7 +165,8 @@ exports.toggleProductStatus = async (vendorId, productId) => {
     return await Product.findById(updatedProduct._id)
       .populate('vendorId', 'vendorName vendorEmail')
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup');
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName');
   } catch (error) {
     throw error;
   }
@@ -169,9 +184,14 @@ exports.getProductsByBrand = async (vendorId, brandId, options = {}) => {
       query.groupId = options.groupId;
     }
     
+    if (options.subGroupId) {
+      query.subGroupId = options.subGroupId;
+    }
+    
     return await Product.find(query)
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup')
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName')
       .sort({ productName: 1 });
   } catch (error) {
     throw error;
@@ -190,9 +210,40 @@ exports.getProductsByGroup = async (vendorId, groupId, options = {}) => {
       query.brandId = options.brandId;
     }
     
+    if (options.subGroupId) {
+      query.subGroupId = options.subGroupId;
+    }
+    
     return await Product.find(query)
       .populate('brandId', 'brandName')
-      .populate('groupId', 'group subGroup')
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName')
+      .sort({ productName: 1 });
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.getProductsBySubGroup = async (vendorId, subGroupId, options = {}) => {
+  try {
+    const query = { vendorId, subGroupId };
+    
+    if (typeof options.isActive === 'boolean') {
+      query.isActive = options.isActive;
+    }
+    
+    if (options.brandId) {
+      query.brandId = options.brandId;
+    }
+    
+    if (options.groupId) {
+      query.groupId = options.groupId;
+    }
+    
+    return await Product.find(query)
+      .populate('brandId', 'brandName')
+      .populate('groupId', 'groupName')
+      .populate('subGroupId', 'subGroupName')
       .sort({ productName: 1 });
   } catch (error) {
     throw error;
@@ -214,7 +265,11 @@ exports.getMyProducts = async (vendorId, page = 1, limit = 10) => {
         },
         {
           path: 'groupId',
-          select: 'group subGroup'
+          select: 'groupName'
+        },
+        {
+          path: 'subGroupId',
+          select: 'subGroupName'
         }
       ]
     });
@@ -245,7 +300,17 @@ exports.getProductStats = async (vendorId) => {
       { $group: { _id: '$groupId', count: { $sum: 1 } } },
       { $lookup: { from: 'groups', localField: '_id', foreignField: '_id', as: 'group' } },
       { $unwind: '$group' },
-      { $project: { groupName: { $concat: ['$group.group', ' - ', '$group.subGroup'] }, count: 1 } },
+      { $project: { groupName: '$group.groupName', count: 1 } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Get products by sub group
+    const productsBySubGroup = await Product.aggregate([
+      { $match: { vendorId: vendorId } },
+      { $group: { _id: '$subGroupId', count: { $sum: 1 } } },
+      { $lookup: { from: 'subgroups', localField: '_id', foreignField: '_id', as: 'subgroup' } },
+      { $unwind: '$subgroup' },
+      { $project: { subGroupName: '$subgroup.subGroupName', count: 1 } },
       { $sort: { count: -1 } }
     ]);
     
@@ -254,7 +319,8 @@ exports.getProductStats = async (vendorId) => {
       activeProducts,
       inactiveProducts,
       productsByBrand,
-      productsByGroup
+      productsByGroup,
+      productsBySubGroup
     };
   } catch (error) {
     throw error;

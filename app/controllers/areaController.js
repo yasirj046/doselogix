@@ -8,9 +8,8 @@ exports.getAllAreas = async (req, res) => {
     const keyword = req.query.keyword || "";
     const status = req.query.status || "";
     const area = req.query.area || "";
-    const subArea = req.query.subArea || "";
     
-    const areas = await areaService.getAllAreas(page, limit, keyword, status, req.vendor.id, area, subArea);
+    const areas = await areaService.getAllAreas(page, limit, keyword, status, req.vendor.id, area);
     
     res.status(200).json(createResponse(areas, null, "All Areas"));
   } catch (error) {
@@ -39,7 +38,7 @@ exports.createArea = async (req, res) => {
     const vendorId = req.vendor.id;
     const areaData = { ...req.body, vendorId };
 
-    // Validation - only area is required, subArea is optional
+    // Validation - only area is required
     const requiredFields = ['area'];
     const missingFields = requiredFields.filter(field => !areaData[field]);
     
@@ -51,7 +50,6 @@ exports.createArea = async (req, res) => {
 
     // Trim string fields
     if (areaData.area) areaData.area = areaData.area.trim();
-    if (areaData.subArea) areaData.subArea = areaData.subArea.trim();
 
     const createdArea = await areaService.createArea(areaData);
     
@@ -79,7 +77,6 @@ exports.updateArea = async (req, res) => {
 
     // Trim string fields
     if (updateData.area) updateData.area = updateData.area.trim();
-    if (updateData.subArea) updateData.subArea = updateData.subArea.trim();
 
     const updatedArea = await areaService.updateArea(areaId, vendorId, updateData);
     
@@ -133,12 +130,11 @@ exports.getMyAreas = async (req, res) => {
     const keyword = req.query.keyword || "";
     const status = req.query.status || "";
     const area = req.query.area || "";
-    const subArea = req.query.subArea || "";
     
     // Use vendor ID from middleware
     const vendorId = req.vendor.id;
 
-    const areas = await areaService.getAllAreas(page, limit, keyword, status, vendorId, area, subArea);
+    const areas = await areaService.getAllAreas(page, limit, keyword, status, vendorId, area);
     res.status(200).json(createResponse(areas, null, "My Areas"));
   } catch (error) {
     console.error('Get my areas error:', error);

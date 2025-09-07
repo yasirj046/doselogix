@@ -8,36 +8,27 @@ exports.getAllGroups = async (req, res) => {
     const keyword = req.query.keyword || "";
     const status = req.query.status || "";
     const brandId = req.query.brandId || "";
-    const group = req.query.group || "";
-    const vendorId = req.vendor.id;
-
-    const result = await groupService.getAllGroups(page, limit, keyword, status, vendorId, brandId, group);
     
-    res.status(200).json(
-      createResponse(result, null, "Groups retrieved successfully")
-    );
+    const groups = await groupService.getAllGroups(page, limit, keyword, status, req.vendor.id, brandId);
+    
+    res.status(200).json(createResponse(groups, null, "All Groups"));
   } catch (error) {
-    console.error('Error in getAllGroups:', error);
-    res.status(200).json(createResponse([], error.message));
+    console.error('Get all groups error:', error);
+    res.status(400).json(createResponse(null, error.message));
   }
 };
 
 exports.getGroupById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const vendorId = req.vendor.id;
-
-    const group = await groupService.getGroupById(id, vendorId);
+    const group = await groupService.getGroupById(req.params.id, req.vendor.id);
     
     if (!group) {
       return res.status(404).json(createResponse(null, "Group not found"));
     }
-
-    res.status(200).json(
-      createResponse(group, null, "Group retrieved successfully")
-    );
+    
+    res.status(200).json(createResponse(group, null, "Group Found"));
   } catch (error) {
-    console.error('Error in getGroupById:', error);
+    console.error('Get group by ID error:', error);
     res.status(400).json(createResponse(null, error.message));
   }
 };
@@ -47,8 +38,8 @@ exports.createGroup = async (req, res) => {
     const vendorId = req.vendor.id;
     const groupData = { ...req.body, vendorId };
 
-    // Validation
-    const requiredFields = ['brandId', 'group', 'subGroup'];
+    // Validation - brandId and groupName are required
+    const requiredFields = ['brandId', 'groupName'];
     const missingFields = requiredFields.filter(field => !groupData[field]);
     
     if (missingFields.length > 0) {
@@ -58,8 +49,7 @@ exports.createGroup = async (req, res) => {
     }
 
     // Trim string fields
-    if (groupData.group) groupData.group = groupData.group.trim();
-    if (groupData.subGroup) groupData.subGroup = groupData.subGroup.trim();
+    if (groupData.groupName) groupData.groupName = groupData.groupName.trim();
 
     const createdGroup = await groupService.createGroup(groupData);
     
@@ -86,8 +76,7 @@ exports.updateGroup = async (req, res) => {
     delete updateData.vendorId;
 
     // Trim string fields
-    if (updateData.group) updateData.group = updateData.group.trim();
-    if (updateData.subGroup) updateData.subGroup = updateData.subGroup.trim();
+    if (updateData.groupName) updateData.groupName = updateData.groupName.trim();
 
     const updatedGroup = await groupService.updateGroup(groupId, vendorId, updateData);
     
@@ -136,128 +125,4 @@ exports.toggleGroupStatus = async (req, res) => {
   }
 };
 
-exports.getGroupsByVendor = async (req, res) => {
-  try {
-    const vendorId = req.vendor.id;
-    const filters = {
-      group: req.query.group || undefined,
-      brandId: req.query.brandId || undefined,
-      isActive: req.query.isActive || undefined
-    };
 
-    // Remove undefined filters
-    Object.keys(filters).forEach(key => {
-      if (filters[key] === undefined) {
-        delete filters[key];
-      }
-    });
-
-    const groups = await groupService.getGroupsByVendor(vendorId, filters);
-    res.status(200).json(createResponse(groups, null, "Vendor groups"));
-  } catch (error) {
-    console.error('Get groups by vendor error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getMyGroups = async (req, res) => {
-  try {
-    const vendorId = req.vendor.id;
-    const groups = await groupService.getGroupsByVendor(vendorId);
-    
-    res.status(200).json(createResponse(groups, null, "My Groups"));
-  } catch (error) {
-    console.error('Get my groups error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getGroupsByName = async (req, res) => {
-  try {
-    const { group } = req.params;
-    const vendorId = req.vendor.id;
-    const brandId = req.query.brandId || null;
-
-    if (!group) {
-      return res.status(400).json(
-        createResponse(null, "Group name is required")
-      );
-    }
-
-    const groups = await groupService.getGroupsByName(vendorId, group, brandId);
-    res.status(200).json(createResponse(groups, null, `Groups matching "${group}"`));
-  } catch (error) {
-    console.error('Get groups by name error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getGroupsByBrand = async (req, res) => {
-  try {
-    const { brandId } = req.params;
-    const vendorId = req.vendor.id;
-
-    if (!brandId) {
-      return res.status(400).json(
-        createResponse(null, "Brand ID is required")
-      );
-    }
-
-    const groups = await groupService.getGroupsByBrand(vendorId, brandId);
-    res.status(200).json(createResponse(groups, null, "Groups for brand"));
-  } catch (error) {
-    console.error('Get groups by brand error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getUniqueGroupsByBrand = async (req, res) => {
-  try {
-    const { brandId } = req.params;
-    const vendorId = req.vendor.id;
-
-    if (!brandId) {
-      return res.status(400).json(
-        createResponse(null, "Brand ID is required")
-      );
-    }
-
-    const groups = await groupService.getUniqueGroupsByBrand(vendorId, brandId);
-    res.status(200).json(createResponse(groups, null, "Unique groups for brand"));
-  } catch (error) {
-    console.error('Get unique groups by brand error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getSubGroupsByGroup = async (req, res) => {
-  try {
-    const vendorId = req.vendor.id;
-    const { group, brandId } = req.query;
-
-    if (!group) {
-      return res.status(400).json(
-        createResponse(null, "Group name is required")
-      );
-    }
-
-    const subGroups = await groupService.getSubGroupsByGroup(vendorId, group, brandId);
-    res.status(200).json(createResponse(subGroups, null, "Sub groups for group"));
-  } catch (error) {
-    console.error('Get sub groups by group error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};
-
-exports.getAllUniqueGroups = async (req, res) => {
-  try {
-    const vendorId = req.vendor.id;
-    const { brandId } = req.query;
-
-    const groups = await groupService.getAllUniqueGroups(vendorId, brandId);
-    res.status(200).json(createResponse(groups, null, "All unique groups"));
-  } catch (error) {
-    console.error('Get all unique groups error:', error);
-    res.status(400).json(createResponse(null, error.message));
-  }
-};

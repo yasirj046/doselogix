@@ -22,47 +22,16 @@ const groupSeeder = async () => {
 
     const sampleGroups = [
       // Pharmaceutical Groups
-      { group: 'Antibiotics', subGroup: 'Penicillin' },
-      { group: 'Antibiotics', subGroup: 'Cephalosporin' },
-      { group: 'Antibiotics', subGroup: 'Macrolides' },
-      { group: 'Antibiotics', subGroup: 'Fluoroquinolones' },
-      
-      { group: 'Analgesics', subGroup: 'NSAIDs' },
-      { group: 'Analgesics', subGroup: 'Opioids' },
-      { group: 'Analgesics', subGroup: 'Acetaminophen' },
-      
-      { group: 'Cardiovascular', subGroup: 'ACE Inhibitors' },
-      { group: 'Cardiovascular', subGroup: 'Beta Blockers' },
-      { group: 'Cardiovascular', subGroup: 'Calcium Channel Blockers' },
-      { group: 'Cardiovascular', subGroup: 'Diuretics' },
-      
-      { group: 'Antidiabetics', subGroup: 'Insulin' },
-      { group: 'Antidiabetics', subGroup: 'Metformin' },
-      { group: 'Antidiabetics', subGroup: 'Sulfonylureas' },
-      
-      { group: 'Respiratory', subGroup: 'Bronchodilators' },
-      { group: 'Respiratory', subGroup: 'Corticosteroids' },
-      { group: 'Respiratory', subGroup: 'Antihistamines' },
-      
-      { group: 'Gastrointestinal', subGroup: 'Proton Pump Inhibitors' },
-      { group: 'Gastrointestinal', subGroup: 'Antacids' },
-      { group: 'Gastrointestinal', subGroup: 'Anti-diarrheal' },
-      
-      { group: 'Neurological', subGroup: 'Antiepileptics' },
-      { group: 'Neurological', subGroup: 'Antidepressants' },
-      { group: 'Neurological', subGroup: 'Anxiolytics' },
-      
-      { group: 'Vitamins', subGroup: 'Vitamin D' },
-      { group: 'Vitamins', subGroup: 'Vitamin B Complex' },
-      { group: 'Vitamins', subGroup: 'Multivitamins' },
-      
-      { group: 'Topical', subGroup: 'Antifungal Creams' },
-      { group: 'Topical', subGroup: 'Antiseptic Solutions' },
-      { group: 'Topical', subGroup: 'Pain Relief Gels' },
-      
-      { group: 'Vaccines', subGroup: 'Hepatitis' },
-      { group: 'Vaccines', subGroup: 'Influenza' },
-      { group: 'Vaccines', subGroup: 'COVID-19' }
+      'Antibiotics',
+      'Analgesics', 
+      'Cardiovascular',
+      'Antidiabetics',
+      'Respiratory',
+      'Gastrointestinal',
+      'Neurological',
+      'Vitamins',
+      'Topical',
+      'Vaccines'
     ];
 
     const groupsToCreate = [];
@@ -77,30 +46,29 @@ const groupSeeder = async () => {
       }
 
       for (const brand of vendorBrands.slice(0, 3)) { // Limit to 3 brands per vendor
-        // Add random groups for each brand (5-8 groups per brand)
-        const numGroups = Math.floor(Math.random() * 4) + 5; // 5-8 groups
+        // Add random groups for each brand (3-5 groups per brand)
+        const numGroups = Math.floor(Math.random() * 3) + 3; // 3-5 groups
         const selectedGroups = sampleGroups
           .sort(() => 0.5 - Math.random())
           .slice(0, numGroups);
 
-        for (const groupData of selectedGroups) {
+        for (const groupName of selectedGroups) {
           groupsToCreate.push({
             vendorId: vendor._id,
             brandId: brand._id,
-            group: groupData.group,
-            subGroup: groupData.subGroup,
+            groupName: groupName,
             isActive: Math.random() > 0.1 // 90% active
           });
         }
       }
     }
 
-    // Remove duplicates based on vendorId, brandId, group, and subGroup
+    // Remove duplicates based on vendorId, brandId, and groupName
     const uniqueGroups = [];
     const seen = new Set();
 
     for (const group of groupsToCreate) {
-      const key = `${group.vendorId}-${group.brandId}-${group.group}-${group.subGroup}`;
+      const key = `${group.vendorId}-${group.brandId}-${group.groupName}`;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueGroups.push(group);

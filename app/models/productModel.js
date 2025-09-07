@@ -19,11 +19,19 @@ const productSchema = new mongoose.Schema(
       index: true
     },
     
-    // Reference to group (which contains both group and subgroup)
+    // Reference to group
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Group',
       required: [true, 'Group ID is required'],
+      index: true
+    },
+    
+    // Reference to sub group
+    subGroupId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SubGroup',
+      required: [true, 'Sub Group ID is required'],
       index: true
     },
     
@@ -72,8 +80,8 @@ productSchema.index({ vendorId: 1, groupId: 1 });
 productSchema.index({ productName: "text" });
 productSchema.index({ vendorId: 1, isActive: 1 });
 
-// Compound unique index to prevent duplicate product names for the same vendor, brand, and group
-productSchema.index({ vendorId: 1, brandId: 1, groupId: 1, productName: 1 }, { unique: true });
+// Compound unique index to prevent duplicate product names for the same vendor, brand, group, and subgroup
+productSchema.index({ vendorId: 1, brandId: 1, groupId: 1, subGroupId: 1, productName: 1 }, { unique: true });
 
 // Virtual for full product display name
 productSchema.virtual('fullProductName').get(function() {
@@ -96,9 +104,14 @@ productSchema.statics.findProductsByVendor = async function(vendorId, options = 
     query.groupId = options.groupId;
   }
   
+  if (options.subGroupId) {
+    query.subGroupId = options.subGroupId;
+  }
+  
   return await this.find(query)
     .populate('brandId', 'brandName')
-    .populate('groupId', 'group subGroup')
+    .populate('groupId', 'groupName')
+    .populate('subGroupId', 'subGroupName')
     .populate('vendorId', 'vendorName vendorEmail');
 };
 
@@ -114,9 +127,14 @@ productSchema.statics.findProductsByBrand = async function(vendorId, brandId, op
     query.groupId = options.groupId;
   }
   
+  if (options.subGroupId) {
+    query.subGroupId = options.subGroupId;
+  }
+  
   return await this.find(query)
     .populate('brandId', 'brandName')
-    .populate('groupId', 'group subGroup')
+    .populate('groupId', 'groupName')
+    .populate('subGroupId', 'subGroupName')
     .populate('vendorId', 'vendorName vendorEmail');
 };
 
@@ -132,9 +150,14 @@ productSchema.statics.findProductsByGroup = async function(vendorId, groupId, op
     query.brandId = options.brandId;
   }
   
+  if (options.subGroupId) {
+    query.subGroupId = options.subGroupId;
+  }
+  
   return await this.find(query)
     .populate('brandId', 'brandName')
-    .populate('groupId', 'group subGroup')
+    .populate('groupId', 'groupName')
+    .populate('subGroupId', 'subGroupName')
     .populate('vendorId', 'vendorName vendorEmail');
 };
 

@@ -20,18 +20,11 @@ const groupSchema = new mongoose.Schema(
     },
     
     // Group information
-    group: {
+    groupName: {
       type: String,
       required: [true, 'Group name is required'],
       trim: true,
       maxlength: [200, 'Group name cannot exceed 200 characters']
-    },
-    
-    subGroup: {
-      type: String,
-      required: [true, 'Sub group is required'],
-      trim: true,
-      maxlength: [200, 'Sub group cannot exceed 200 characters']
     },
     
     // Status
@@ -50,34 +43,18 @@ const groupSchema = new mongoose.Schema(
 // Add pagination plugin
 groupSchema.plugin(mongoosePaginate);
 
+// Add unique compound index to prevent duplicate group names for the same vendor and brand
+groupSchema.index({ vendorId: 1, brandId: 1, groupName: 1 }, { unique: true });
+
+// Add text index for search functionality
+groupSchema.index({ groupName: "text" });
+
 // Add indexes for better performance
 groupSchema.index({ vendorId: 1, brandId: 1 });
-groupSchema.index({ vendorId: 1, group: 1 });
-groupSchema.index({ group: "text", subGroup: "text" });
-
-// Compound unique index to prevent duplicate group-subgroup combinations for the same vendor and brand
-groupSchema.index({ vendorId: 1, brandId: 1, group: 1, subGroup: 1 }, { unique: true });
 
 // Virtual for full group name
 groupSchema.virtual('fullGroupName').get(function() {
-  return `${this.group} - ${this.subGroup}`;
+  return `${this.groupName}`;
 });
-
-// Static method to find groups by vendor
-groupSchema.statics.findGroupsByVendor = async function(vendorId, options = {}) {
-  const query = { vendorId };
-  
-  if (typeof options.isActive === 'boolean') {
-    query.isActive = options.isActive;
-  }
-  
-  if (options.brandId) {
-    query.brandId = options.brandId;
-  }
-  
-  return await this.find(query)
-    .populate('brandId', 'brandName')
-    .populate('vendorId', 'vendorName vendorEmail');
-};
 
 module.exports = mongoose.model("Group", groupSchema);

@@ -19,13 +19,6 @@ const areaSchema = new mongoose.Schema(
       maxlength: [200, 'Area name cannot exceed 200 characters']
     },
     
-    subArea: {
-      type: String,
-      required: false,
-      trim: true,
-      maxlength: [200, 'Sub area cannot exceed 200 characters']
-    },
-    
     // Status
     isActive: {
       type: Boolean,
@@ -42,16 +35,15 @@ const areaSchema = new mongoose.Schema(
 // Add pagination plugin
 areaSchema.plugin(mongoosePaginate);
 
-// Add indexes for better performance
-areaSchema.index({ vendorId: 1, area: 1 });
-areaSchema.index({ area: "text", subArea: "text" });
+// Add unique compound index to prevent duplicate area names for the same vendor
+areaSchema.index({ vendorId: 1, area: 1 }, { unique: true });
 
-// Compound unique index to prevent duplicate area-subarea combinations for the same vendor
-// areaSchema.index({ vendorId: 1, area: 1, subArea: 1 }, { unique: true });
+// Add text index for search functionality
+areaSchema.index({ area: "text" });
 
 // Virtual for full area name
 areaSchema.virtual('fullAreaName').get(function() {
-  return `${this.area} - ${this.subArea}`;
+  return `${this.area}`;
 });
 
 module.exports = mongoose.model("Area", areaSchema);

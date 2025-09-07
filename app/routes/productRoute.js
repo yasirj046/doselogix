@@ -25,6 +25,9 @@ router.get('/brand/:brandId', multiTenancy, productController.getProductsByBrand
 // Get products by group
 router.get('/group/:groupId', multiTenancy, productController.getProductsByGroup);
 
+// Get products by subgroup
+router.get('/subgroup/:subGroupId', multiTenancy, productController.getProductsBySubGroup);
+
 // Get a single product by ID
 router.get('/:id', multiTenancy, productController.getProductById);
 

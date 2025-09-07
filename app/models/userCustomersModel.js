@@ -57,15 +57,15 @@ const userCustomersSchema = new mongoose.Schema(
       }
     },
     customerArea: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Area',
       required: [true, 'Customer area is required'],
-      trim: true,
-      maxlength: [100, 'Customer area cannot exceed 100 characters']
+      index: true
     },
     customerSubArea: {
-      type: String,
-      trim: true,
-      maxlength: [100, 'Customer sub area cannot exceed 100 characters']
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SubArea',
+      index: true
     },
     
     // Contact information

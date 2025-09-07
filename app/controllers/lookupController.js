@@ -67,8 +67,8 @@ exports.getAreasByVendor = async (req, res) => {
 exports.getSubAreasByArea = async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    const { area } = req.query;
-    const subareas = await lookupService.getSubAreasByArea(vendorId, area);
+    const { areaId } = req.query; // Changed from area to areaId
+    const subareas = await lookupService.getSubAreasByArea(vendorId, areaId);
     res.status(200).json(util.createResponse(subareas, null, "Sub Areas"));
   } catch (error) {
     res.status(200).json(util.createResponse([], error));
@@ -129,16 +129,22 @@ exports.getUniqueGroupNames = async (req, res) => {
 exports.getSubGroupsByGroup = async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    const { groupName, brandId } = req.query;
+    const { groupId, brandId } = req.query;
     
-    if (!groupName) {
-      return res.status(400).json(
-        util.createResponse(null, { message: "Group name is required" })
-      );
-    }
-    
-    const subGroups = await lookupService.getSubGroupsByGroup(vendorId, groupName, brandId);
+    const subGroups = await lookupService.getSubGroupsByGroup(vendorId, groupId, brandId);
     res.status(200).json(util.createResponse(subGroups, null, "Sub Groups"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getSubGroupsByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId, groupId } = req.query;
+    
+    const subGroups = await lookupService.getSubGroupsByVendor(vendorId, brandId, groupId);
+    res.status(200).json(util.createResponse(subGroups, null, "Sub Groups by Vendor"));
   } catch (error) {
     res.status(200).json(util.createResponse([], error));
   }
@@ -147,11 +153,12 @@ exports.getSubGroupsByGroup = async (req, res) => {
 exports.getProductsByFilters = async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    const { brandId, groupId } = req.query;
+    const { brandId, groupId, subGroupId } = req.query;
     
     const filters = {};
     if (brandId) filters.brandId = brandId;
     if (groupId) filters.groupId = groupId;
+    if (subGroupId) filters.subGroupId = subGroupId;
     
     const products = await lookupService.getProductsByFilters(vendorId, filters);
     res.status(200).json(util.createResponse(products, null, "Products by Filters"));

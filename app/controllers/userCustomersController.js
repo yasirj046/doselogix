@@ -1,5 +1,7 @@
 const userCustomersService = require("../services/userCustomersService");
 const util = require("../util/util");
+const Area = require("../models/areaModel");
+const SubArea = require("../models/subAreaModel");
 
 exports.getAllCustomers = async (req, res) => {
   const page = parseInt(req.query.pageNumber) || 1;
@@ -57,8 +59,8 @@ exports.createCustomer = async (req, res) => {
       customerCity,
       customerAddress: customerAddress.trim(),
       customerCategory,
-      customerArea: customerArea.trim(),
-      customerSubArea: customerSubArea ? customerSubArea.trim() : undefined,
+      customerArea,  // Now expecting ObjectId
+      customerSubArea: customerSubArea || undefined,  // Now expecting ObjectId
       customerPrimaryContact: customerPrimaryContact.trim(),
       customerSecondaryContact: customerSecondaryContact ? customerSecondaryContact.trim() : undefined,
       customerCnic: customerCnic.trim(),
@@ -75,6 +77,32 @@ exports.createCustomer = async (req, res) => {
           message: "Name, province, city, address, category, area, primary contact, and CNIC are required" 
         })
       );
+    }
+
+    // Validate that the area belongs to the vendor
+    const area = await Area.findOne({ _id: customerArea, vendorId: req.vendor.id });
+    if (!area) {
+      return res.status(400).json(
+        util.createResponse(null, { 
+          message: "Invalid area selected or area does not belong to your organization" 
+        })
+      );
+    }
+
+    // If subarea is provided, validate it belongs to the selected area
+    if (customerSubArea) {
+      const subArea = await SubArea.findOne({ 
+        _id: customerSubArea, 
+        areaId: customerArea, 
+        vendorId: req.vendor.id 
+      });
+      if (!subArea) {
+        return res.status(400).json(
+          util.createResponse(null, { 
+            message: "Invalid sub area selected or sub area does not belong to the selected area" 
+          })
+        );
+      }
     }
 
     const customer = await userCustomersService.createCustomer(customerData);
@@ -111,6 +139,43 @@ exports.updateCustomer = async (req, res) => {
     // Handle date conversion if provided
     if (updateData.customerLicenseExpiryDate) {
       updateData.customerLicenseExpiryDate = new Date(updateData.customerLicenseExpiryDate);
+    }
+
+    // Validate area if being updated
+    if (updateData.customerArea) {
+      const area = await Area.findOne({ _id: updateData.customerArea, vendorId });
+      if (!area) {
+        return res.status(400).json(
+          util.createResponse(null, { 
+            message: "Invalid area selected or area does not belong to your organization" 
+          })
+        );
+      }
+    }
+
+    // Validate subarea if being updated
+    if (updateData.customerSubArea) {
+      const areaId = updateData.customerArea || (await userCustomersService.getCustomerById(customerId))?.customerArea?._id;
+      if (!areaId) {
+        return res.status(400).json(
+          util.createResponse(null, { 
+            message: "Area must be selected before selecting a sub area" 
+          })
+        );
+      }
+
+      const subArea = await SubArea.findOne({ 
+        _id: updateData.customerSubArea, 
+        areaId, 
+        vendorId 
+      });
+      if (!subArea) {
+        return res.status(400).json(
+          util.createResponse(null, { 
+            message: "Invalid sub area selected or sub area does not belong to the selected area" 
+          })
+        );
+      }
     }
 
     const updatedCustomer = await userCustomersService.updateCustomer(customerId, updateData, vendorId);

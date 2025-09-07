@@ -1,6 +1,6 @@
 const Area = require('../models/areaModel');
 
-exports.getAllAreas = async (page, limit, keyword, status, vendorId, area, subArea) => {
+exports.getAllAreas = async (page, limit, keyword, status, vendorId, area) => {
   try {
     let query = {};
     
@@ -18,21 +18,13 @@ exports.getAllAreas = async (page, limit, keyword, status, vendorId, area, subAr
     if (area && area !== "") {
       query.area = area;
     }
-    
-    // Filter by subArea if provided (exact match)
-    if (subArea && subArea !== "") {
-      query.subArea = subArea;
-    }
-    
-    // Search functionality (search across area and subArea)
+
+    // Search functionality (search across area)
     if (keyword && keyword !== "") {
       query.$or = [
-        { area: { $regex: keyword, $options: 'i' } },
-        { subArea: { $regex: keyword, $options: 'i' } }
+        { area: { $regex: keyword, $options: 'i' } }
       ];
-    }
-
-    return await Area.paginate(query, { 
+    }    return await Area.paginate(query, { 
       page, 
       limit,
       sort: { createdAt: -1 },
@@ -62,15 +54,17 @@ exports.getAreaById = async (id, vendorId) => {
 
 exports.createArea = async (areaData) => {
   try {
-    // Check if area with same name and sub area already exists for this vendor
+    // Normalize area name for comparison (case-insensitive and trimmed)
+    const normalizedAreaName = areaData.area.trim().toLowerCase();
+    
+    // Check if area with same name already exists for this vendor (case-insensitive)
     const existingArea = await Area.findOne({
       vendorId: areaData.vendorId,
-      area: areaData.area,
-      subArea: areaData.subArea
+      area: { $regex: new RegExp(`^${normalizedAreaName}$`, 'i') }
     });
 
     if (existingArea) {
-      throw new Error('Area with same name and sub area already exists');
+      throw new Error('Area with same name already exists');
     }
 
     const area = new Area(areaData);
@@ -78,6 +72,10 @@ exports.createArea = async (areaData) => {
     return await Area.findById(savedArea._id).populate('vendorId', 'vendorName vendorEmail');
   } catch (error) {
     console.error('Error in createArea:', error);
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      throw new Error('Area with same name already exists');
+    }
     throw error;
   }
 };
@@ -86,6 +84,22 @@ exports.updateArea = async (id, vendorId, areaData) => {
   try {
     // Don't allow updating vendorId
     delete areaData.vendorId;
+    
+    // If area name is being updated, check for duplicates
+    if (areaData.area) {
+      const normalizedAreaName = areaData.area.trim().toLowerCase();
+      
+      // Check if another area with same name exists for this vendor (excluding current area)
+      const existingArea = await Area.findOne({
+        vendorId: vendorId,
+        area: { $regex: new RegExp(`^${normalizedAreaName}$`, 'i') },
+        _id: { $ne: id }
+      });
+
+      if (existingArea) {
+        throw new Error('Area with same name already exists');
+      }
+    }
     
     const area = await Area.findOneAndUpdate(
       { _id: id, vendorId: vendorId }, 
@@ -100,6 +114,10 @@ exports.updateArea = async (id, vendorId, areaData) => {
     return area;
   } catch (error) {
     console.error('Error in updateArea:', error);
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      throw new Error('Area with same name already exists');
+    }
     throw error;
   }
 };
@@ -144,7 +162,7 @@ exports.getAreasByVendor = async (vendorId, filters = {}) => {
       query.isActive = filters.isActive === 'true';
     }
 
-    return await Area.find(query).sort({ area: 1, subArea: 1 });
+    return await Area.find(query).sort({ area: 1 });
   } catch (error) {
     console.error('Error in getAreasByVendor:', error);
     throw error;
@@ -156,7 +174,7 @@ exports.getAreasByName = async (vendorId, areaName) => {
     return await Area.find({
       vendorId,
       area: { $regex: areaName, $options: 'i' }
-    }).sort({ subArea: 1 });
+    }).sort({ area: 1 });
   } catch (error) {
     console.error('Error in getAreasByName:', error);
     throw error;

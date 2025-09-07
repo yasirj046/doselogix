@@ -9,9 +9,10 @@ exports.getAllProducts = async (req, res) => {
     const status = req.query.status || "";
     const brandId = req.query.brandId || "";
     const groupId = req.query.groupId || "";
+    const subGroupId = req.query.subGroupId || "";
     const vendorId = req.vendor.id;
 
-    const result = await productService.getAllProducts(page, limit, keyword, status, vendorId, brandId, groupId);
+    const result = await productService.getAllProducts(page, limit, keyword, status, vendorId, brandId, groupId, subGroupId);
     
     res.status(200).json(
       createResponse(result, null, "Products retrieved successfully")
@@ -48,7 +49,7 @@ exports.createProduct = async (req, res) => {
     const productData = { ...req.body, vendorId };
 
     // Validation
-    const requiredFields = ['brandId', 'groupId', 'productName', 'packingSize', 'cartonSize'];
+    const requiredFields = ['brandId', 'groupId', 'subGroupId', 'productName', 'packingSize', 'cartonSize'];
     const missingFields = requiredFields.filter(field => !productData[field]);
     
     if (missingFields.length > 0) {
@@ -81,7 +82,7 @@ exports.updateProduct = async (req, res) => {
     const updateData = req.body;
 
     // Validation for required fields if they're being updated
-    const requiredFields = ['brandId', 'groupId', 'productName', 'packingSize', 'cartonSize'];
+    const requiredFields = ['brandId', 'groupId', 'subGroupId', 'productName', 'packingSize', 'cartonSize'];
     for (const field of requiredFields) {
       if (updateData.hasOwnProperty(field) && (!updateData[field] || updateData[field].toString().trim() === '')) {
         return res.status(400).json(
@@ -163,7 +164,7 @@ exports.getProductsByGroup = async (req, res) => {
   try {
     const { groupId } = req.params;
     const vendorId = req.vendor.id;
-    const { isActive, brandId } = req.query;
+    const { isActive, brandId, subGroupId } = req.query;
 
     const options = {};
     if (isActive !== undefined) {
@@ -171,6 +172,9 @@ exports.getProductsByGroup = async (req, res) => {
     }
     if (brandId) {
       options.brandId = brandId;
+    }
+    if (subGroupId) {
+      options.subGroupId = subGroupId;
     }
 
     const products = await productService.getProductsByGroup(vendorId, groupId, options);
@@ -180,6 +184,34 @@ exports.getProductsByGroup = async (req, res) => {
     );
   } catch (error) {
     console.error('Error in getProductsByGroup:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
+
+exports.getProductsBySubGroup = async (req, res) => {
+  try {
+    const { subGroupId } = req.params;
+    const vendorId = req.vendor.id;
+    const { isActive, brandId, groupId } = req.query;
+
+    const options = {};
+    if (isActive !== undefined) {
+      options.isActive = isActive === 'true';
+    }
+    if (brandId) {
+      options.brandId = brandId;
+    }
+    if (groupId) {
+      options.groupId = groupId;
+    }
+
+    const products = await productService.getProductsBySubGroup(vendorId, subGroupId, options);
+    
+    res.status(200).json(
+      createResponse(products, null, "Products by subgroup retrieved successfully")
+    );
+  } catch (error) {
+    console.error('Error in getProductsBySubGroup:', error);
     res.status(400).json(createResponse(null, error.message));
   }
 };

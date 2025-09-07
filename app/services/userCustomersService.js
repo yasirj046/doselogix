@@ -35,10 +35,24 @@ exports.getAllCustomers = async (page, limit, keyword, vendorId, customerProvinc
     return await UserCustomers.paginate(query, { 
       page, 
       limit,
-      populate: {
-        path: 'vendorId',
-        select: 'vendorName vendorEmail vendorPhone businessName'
-      },
+      populate: [
+        {
+          path: 'vendorId',
+          select: 'vendorName vendorEmail vendorPhone businessName'
+        },
+        {
+          path: 'customerArea',
+          select: 'area'
+        },
+        {
+          path: 'customerSubArea',
+          select: 'subAreaName',
+          populate: {
+            path: 'areaId',
+            select: 'area'
+          }
+        }
+      ],
       sort: { createdAt: -1 }
     });
   } catch (error) {
@@ -49,7 +63,17 @@ exports.getAllCustomers = async (page, limit, keyword, vendorId, customerProvinc
 
 exports.getCustomerById = async (id) => {
   try {
-    return await UserCustomers.findById(id).populate('vendorId', 'vendorName vendorEmail vendorPhone businessName');
+    return await UserCustomers.findById(id)
+      .populate('vendorId', 'vendorName vendorEmail vendorPhone businessName')
+      .populate('customerArea', 'area')
+      .populate({
+        path: 'customerSubArea',
+        select: 'subAreaName',
+        populate: {
+          path: 'areaId',
+          select: 'area'
+        }
+      });
   } catch (error) {
     console.error('Error in getCustomerById:', error);
     throw error;
@@ -60,7 +84,20 @@ exports.createCustomer = async (customerData) => {
   try {
     const customer = new UserCustomers(customerData);
     await customer.save();
-    return await customer.populate('vendorId', 'vendorName vendorEmail vendorPhone businessName');
+        
+    // Populate the saved customer document
+    const populatedCustomer = await UserCustomers.findById(customer._id)
+      .populate('vendorId', 'vendorName vendorEmail vendorPhone businessName')
+      .populate('customerArea', 'area')
+      .populate({
+        path: 'customerSubArea',
+        select: 'subAreaName',
+        populate: {
+          path: 'areaId',
+          select: 'area'
+        }
+      });
+    return populatedCustomer;
   } catch (error) {
     console.error('Error in createCustomer:', error);
     throw error;
@@ -71,10 +108,24 @@ exports.updateCustomer = async (id, customerData, vendorId) => {
   try {
     return await UserCustomers.findOneAndUpdate({ _id: id, vendorId: vendorId }, customerData, {
       new: true,
-      populate: {
-        path: 'vendorId',
-        select: 'vendorName vendorEmail vendorPhone businessName'
-      }
+      populate: [
+        {
+          path: 'vendorId',
+          select: 'vendorName vendorEmail vendorPhone businessName'
+        },
+        {
+          path: 'customerArea',
+          select: 'area'
+        },
+        {
+          path: 'customerSubArea',
+          select: 'subAreaName',
+          populate: {
+            path: 'areaId',
+            select: 'area'
+          }
+        }
+      ]
     });
   } catch (error) {
     console.error('Error in updateCustomer:', error);

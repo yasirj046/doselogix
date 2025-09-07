@@ -7,7 +7,9 @@ const lookupRoutes = require('./app/routes/lookupRoute');
 const brandRoutes = require('./app/routes/brandRoute');
 const employeeRoutes = require('./app/routes/employeeRoute');
 const areaRoutes = require('./app/routes/areaRoute');
+const subAreaRoutes = require('./app/routes/subAreaRoute');
 const groupRoutes = require('./app/routes/groupRoute');
+const subGroupRoutes = require('./app/routes/subGroupRoute');
 const productRoutes = require('./app/routes/productRoute');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -47,7 +49,9 @@ app.use('/api/lookup', lookupRoutes);
 app.use('/api/brands', brandRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/areas', areaRoutes);
+app.use('/api/subareas', subAreaRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/subgroups', subGroupRoutes);
 app.use('/api/products', productRoutes);
 
 mongoose

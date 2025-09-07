@@ -28,7 +28,8 @@ router.get("/brands", authenticate, multiTenancy, lookupController.getBrandsByVe
 router.get("/groups", authenticate, multiTenancy, lookupController.getGroupsByVendor);
 router.get("/groups-by-brand", authenticate, multiTenancy, lookupController.getGroupsByBrand);
 router.get("/unique-groups", authenticate, multiTenancy, lookupController.getUniqueGroupNames);
-router.get("/subgroups", authenticate, multiTenancy, lookupController.getSubGroupsByGroup);
+router.get("/subgroups", authenticate, multiTenancy, lookupController.getSubGroupsByVendor);
+router.get("/subgroups-by-group", authenticate, multiTenancy, lookupController.getSubGroupsByGroup);
 router.get("/products", authenticate, multiTenancy, lookupController.getProductsByFilters);
 
 module.exports = router; 
