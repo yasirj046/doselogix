@@ -150,12 +150,21 @@ purchaseEntrySchema.virtual('remainingBalance').get(function() {
 
 // Virtual for payment status
 purchaseEntrySchema.virtual('paymentStatus').get(function() {
-  const paid = this.totalPaid;
-  const total = this.grandTotal;
+  const cashPaid = this.cashPaid || 0;
+  const creditAmount = this.creditAmount || 0;
+  const creditPayments = this.paymentDetails.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+  const totalPaid = cashPaid + creditPayments;
+  const remainingCredit = creditAmount - creditPayments;
   
-  if (paid === 0) return 'Unpaid';
-  if (paid >= total) return 'Paid';
-  return 'Partial';
+  if (totalPaid >= this.grandTotal || remainingCredit <= 0) return 'Paid';
+  if (totalPaid > 0) return 'Partial';
+  return 'Unpaid';
+});
+
+// Virtual for remaining credit balance
+purchaseEntrySchema.virtual('remainingCredit').get(function() {
+  const creditPayments = this.paymentDetails.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
+  return Math.max(0, (this.creditAmount || 0) - creditPayments);
 });
 
 // Static method to find purchase entries by vendor

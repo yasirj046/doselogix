@@ -55,10 +55,10 @@ exports.createCustomer = async (req, res) => {
     const customerData = {
       vendorId: req.vendor.id,  // Remove trim() since it's from middleware
       customerName: customerName.trim(),
-      customerProvince,
-      customerCity,
+      customerProvince: customerProvince || undefined,
+      customerCity: customerCity || undefined,
       customerAddress: customerAddress.trim(),
-      customerCategory,
+      customerCategory: customerCategory || undefined,
       customerArea,  // Now expecting ObjectId
       customerSubArea: customerSubArea || undefined,  // Now expecting ObjectId
       customerPrimaryContact: customerPrimaryContact.trim(),
@@ -69,12 +69,12 @@ exports.createCustomer = async (req, res) => {
     };
 
     // Validation
-    if (!customerName || !customerProvince || 
-        !customerCity || !customerAddress || !customerCategory || 
-        !customerArea || !customerPrimaryContact || !customerCnic) {
+    if (!customerName || !customerAddress || 
+        !customerArea || !customerPrimaryContact || !customerCnic || 
+        !customerLicenseNumber || !customerLicenseExpiryDate) {
       return res.status(400).json(
         util.createResponse(null, { 
-          message: "Name, province, city, address, category, area, primary contact, and CNIC are required" 
+          message: "Name, address, area, primary contact, CNIC, license number, and license expiry date are required" 
         })
       );
     }

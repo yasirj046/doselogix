@@ -28,6 +28,9 @@ router.put('/:id', multiTenancy, purchaseEntryController.updatePurchaseEntry);
 // Toggle purchase entry active status
 router.patch('/:id/toggle-status', multiTenancy, purchaseEntryController.togglePurchaseEntryStatus);
 
+// Add payment to credit
+router.post('/:id/add-payment', multiTenancy, purchaseEntryController.addPaymentToCredit);
+
 // Delete a purchase entry
 router.delete('/:id', multiTenancy, purchaseEntryController.deletePurchaseEntry);
 

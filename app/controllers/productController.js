@@ -58,6 +58,14 @@ exports.createProduct = async (req, res) => {
       );
     }
 
+    // Handle optional ObjectId fields - remove empty strings to avoid casting errors
+    if (productData.groupId === '' || productData.groupId === null || productData.groupId === undefined) {
+      delete productData.groupId;
+    }
+    if (productData.subGroupId === '' || productData.subGroupId === null || productData.subGroupId === undefined) {
+      delete productData.subGroupId;
+    }
+
     // Trim string fields
     if (productData.productName) productData.productName = productData.productName.trim();
     if (productData.packingSize) productData.packingSize = productData.packingSize.trim();
@@ -89,6 +97,14 @@ exports.updateProduct = async (req, res) => {
           createResponse(null, `${field} is required and cannot be empty`)
         );
       }
+    }
+
+    // Handle optional ObjectId fields - remove empty strings to avoid casting errors
+    if (updateData.groupId === '' || updateData.groupId === null || updateData.groupId === undefined) {
+      delete updateData.groupId;
+    }
+    if (updateData.subGroupId === '' || updateData.subGroupId === null || updateData.subGroupId === undefined) {
+      delete updateData.subGroupId;
     }
 
     // Trim string fields if they exist in updateData

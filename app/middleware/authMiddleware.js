@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 exports.authenticate = (req, res, next) => {
   let token = null;
   const authHeader = req.headers.authorization;
+  
   if (authHeader) {
     if (authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
@@ -10,7 +11,9 @@ exports.authenticate = (req, res, next) => {
       token = authHeader;
     }
   }
+  
   if (!token) {
+    console.log("[AUTH DEBUG] No token found in request");
     return res
       .status(401)
       .json({ message: "No token provided in Authorization header" });

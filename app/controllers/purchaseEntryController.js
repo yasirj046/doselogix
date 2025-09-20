@@ -10,9 +10,10 @@ exports.getAllPurchaseEntries = async (req, res) => {
     const brandId = req.query.brandId || "";
     const startDate = req.query.startDate || "";
     const endDate = req.query.endDate || "";
+    const paymentStatus = req.query.paymentStatus || "";
     const vendorId = req.vendor.id;
 
-    const result = await purchaseEntryService.getAllPurchaseEntries(page, limit, keyword, status, vendorId, brandId, startDate, endDate);
+    const result = await purchaseEntryService.getAllPurchaseEntries(page, limit, keyword, status, vendorId, brandId, startDate, endDate, paymentStatus);
     
     res.status(200).json(
       createResponse(result, null, "Purchase entries retrieved successfully")
@@ -232,6 +233,23 @@ exports.getPurchaseStats = async (req, res) => {
     );
   } catch (error) {
     console.error('Error in getPurchaseStats:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
+
+exports.addPaymentToCredit = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const purchaseEntryId = req.params.id;
+    const paymentData = req.body;
+
+    const result = await purchaseEntryService.addPaymentToCredit(vendorId, purchaseEntryId, paymentData);
+    
+    res.status(200).json(
+      createResponse(result, null, "Payment added to credit successfully")
+    );
+  } catch (error) {
+    console.error('Error in addPaymentToCredit:', error);
     res.status(400).json(createResponse(null, error.message));
   }
 };

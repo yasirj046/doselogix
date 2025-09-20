@@ -5,7 +5,7 @@ const Product = require('../models/productModel');
 const Brand = require('../models/brandModel');
 const mongoose = require('mongoose');
 
-exports.getAllPurchaseEntries = async (page, limit, keyword, status, vendorId, brandId, startDate, endDate) => {
+exports.getAllPurchaseEntries = async (page, limit, keyword, status, vendorId, brandId, startDate, endDate, paymentStatus) => {
   try {
     let query = { vendorId };
     
@@ -34,6 +34,42 @@ exports.getAllPurchaseEntries = async (page, limit, keyword, status, vendorId, b
         { invoiceNumber: { $regex: keyword, $options: 'i' } },
         { remarks: { $regex: keyword, $options: 'i' } }
       ];
+    }
+
+    // Filter by payment status if provided
+    if (paymentStatus && paymentStatus !== "") {
+      switch (paymentStatus.toLowerCase()) {
+        case 'paid':
+          // Total paid (cash + credit payments) is greater than or equal to grand total
+          // OR remaining credit is zero or less
+          query.$expr = {
+            $or: [
+              { $gte: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, { $ifNull: ["$grandTotal", 0] }] },
+              { $lte: [{ $subtract: [{ $ifNull: ["$creditAmount", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] }
+            ]
+          };
+          break;
+        case 'unpaid':
+          // No cash paid and no credit payments made
+          query.$expr = {
+            $and: [
+              { $lte: [{ $ifNull: ["$cashPaid", 0] }, 0] },
+              { $lte: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, 0] }
+            ]
+          };
+          break;
+        case 'partial':
+          // Some payment made (cash or credit payments) but not fully paid
+          // AND remaining credit is greater than zero
+          query.$expr = {
+            $and: [
+              { $gt: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] },
+              { $lt: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, { $ifNull: ["$grandTotal", 0] }] },
+              { $gt: [{ $subtract: [{ $ifNull: ["$creditAmount", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] }
+            ]
+          };
+          break;
+      }
     }
 
     return await PurchaseEntry.paginate(query, { 
@@ -66,7 +102,38 @@ exports.getPurchaseEntryById = async (id, vendorId) => {
     if (!purchaseEntry) {
       throw new Error('Purchase entry not found');
     }
-    return purchaseEntry;
+
+    // Get the associated purchase products
+    const purchaseProducts = await PurchaseProduct.find({ 
+      purchaseEntryId: id, 
+      vendorId: vendorId 
+    }).populate('productId', 'productName cartonSize packingSize');
+
+    // Convert to plain object and add products
+    const purchaseEntryWithProducts = purchaseEntry.toObject();
+    purchaseEntryWithProducts.products = purchaseProducts.map(product => ({
+      productId: product.productId._id,
+      productName: product.productId.productName,
+      cartonSize: product.productId.cartonSize,
+      packingSize: product.productId.packingSize,
+      batchNumber: product.batchNumber,
+      expiryDate: product.expiryDate,
+      cartons: product.cartons,
+      pieces: product.pieces,
+      bonus: product.bonus,
+      netPrice: product.netPrice,
+      discount: product.discount,
+      discountType: product.discountType,
+      salePrice: product.salePrice,
+      minSalePrice: product.minSalePrice,
+      retailPrice: product.retailPrice,
+      invoicePrice: product.invoicePrice,
+      quantity: product.quantity,
+      totalAmount: product.totalAmount,
+      effectiveCostPerPiece: product.effectiveCostPerPiece
+    }));
+
+    return purchaseEntryWithProducts;
   } catch (error) {
     throw error;
   }
@@ -301,6 +368,37 @@ exports.createPurchaseProducts = async (purchaseEntryId, products, vendorId, ses
     }
     
     return purchaseProducts;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.addPaymentToCredit = async (vendorId, purchaseEntryId, paymentData) => {
+  try {
+    const purchaseEntry = await PurchaseEntry.findOne({ _id: purchaseEntryId, vendorId });
+    if (!purchaseEntry) {
+      throw new Error('Purchase entry not found');
+    }
+
+    const currentCreditPayments = purchaseEntry.paymentDetails.reduce((sum, payment) => sum + payment.amountPaid, 0);
+    const remainingCredit = purchaseEntry.creditAmount - currentCreditPayments;
+
+    if (paymentData.amountPaid > remainingCredit) {
+      throw new Error(`Payment amount (₨${paymentData.amountPaid}) cannot exceed remaining credit (₨${remainingCredit})`);
+    }
+
+    // Add the new payment to paymentDetails array
+    purchaseEntry.paymentDetails.push({
+      date: paymentData.date || new Date(),
+      amountPaid: paymentData.amountPaid
+    });
+
+    const updatedPurchaseEntry = await purchaseEntry.save();
+    
+    // Return the populated purchase entry
+    return await PurchaseEntry.findById(updatedPurchaseEntry._id)
+      .populate('vendorId', 'vendorName vendorEmail')
+      .populate('brandId', 'brandName');
   } catch (error) {
     throw error;
   }

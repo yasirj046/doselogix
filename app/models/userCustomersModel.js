@@ -26,7 +26,6 @@ const userCustomersSchema = new mongoose.Schema(
     // Location information
     customerProvince: {
       type: String,
-      required: [true, 'Customer province is required'],
       enum: {
         values: PROVINCE_ENUM,
         message: 'Invalid province selected'
@@ -34,7 +33,6 @@ const userCustomersSchema = new mongoose.Schema(
     },
     customerCity: {
       type: String,
-      required: [true, 'Customer city is required'],
       enum: {
         values: ALL_CITIES,
         message: 'Invalid city selected'
@@ -50,7 +48,6 @@ const userCustomersSchema = new mongoose.Schema(
     // Business classification
     customerCategory: {
       type: String,
-      required: [true, 'Customer category is required'],
       enum: {
         values: CUSTOMER_CATEGORY_ENUM,
         message: 'Invalid customer category selected'
@@ -89,11 +86,13 @@ const userCustomersSchema = new mongoose.Schema(
     },
     customerLicenseNumber: {
       type: String,
+      required: [true, 'License number is required'],
       trim: true,
       maxlength: [100, 'License number cannot exceed 100 characters']
     },
     customerLicenseExpiryDate: {
-      type: Date
+      type: Date,
+      required: [true, 'License expiry date is required']
     },
     
     // System fields
@@ -117,8 +116,8 @@ userCustomersSchema.index({ vendorId: 1 ,customerName: 1 }, { unique: true });
 // userCustomersSchema.index({ vendorId: 1, isActive: 1 });
 userCustomersSchema.index({ customerName: "text"}); //, customerCode: "text" 
 // userCustomersSchema.index({ customerName: "text" });
-userCustomersSchema.index({ customerProvince: 1, customerCity: 1 });
-userCustomersSchema.index({ customerCategory: 1 });
+// userCustomersSchema.index({ customerProvince: 1, customerCity: 1 });
+// userCustomersSchema.index({ customerCategory: 1 });
 userCustomersSchema.index({ customerLicenseExpiryDate: 1 });
 
 // Configure auto-incrementing sequence
