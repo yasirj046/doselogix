@@ -1,13 +1,18 @@
 const Inventory = require('../models/inventoryModel');
 const Product = require('../models/productModel');
 
-exports.getAllInventory = async (page, limit, keyword, status, vendorId, productId, batchNumber, stockStatus) => {
+exports.getAllInventory = async (page, limit, keyword, status, vendorId, productId, batchNumber, stockStatus, brandId) => {
   try {
     let query = { vendorId };
     
     // Filter by status if provided
     if (status && status !== "") {
       query.isActive = status === "Active";
+    }
+    
+    // Filter by brand if provided
+    if (brandId && brandId !== "") {
+      query.brandId = brandId;
     }
     
     // Filter by product if provided
@@ -39,7 +44,7 @@ exports.getAllInventory = async (page, limit, keyword, status, vendorId, product
       }
     }
     
-    // Search by keyword in batch number or product name
+    // Search by keyword in batch number, product name, or brand name
     if (keyword && keyword !== "") {
       // For keyword search, we'll need to populate and filter
       const inventoryItems = await Inventory.find(query)
@@ -47,10 +52,16 @@ exports.getAllInventory = async (page, limit, keyword, status, vendorId, product
           path: 'productId',
           match: { productName: { $regex: keyword, $options: 'i' } }
         })
+        .populate({
+          path: 'brandId',
+          match: { brandName: { $regex: keyword, $options: 'i' } }
+        })
         .sort({ lastUpdated: -1 });
       
-      // Filter out items where productId is null (due to population match)
-      const filteredItems = inventoryItems.filter(item => item.productId !== null);
+      // Filter out items where productId or brandId is null (due to population match)
+      const filteredItems = inventoryItems.filter(item => 
+        (item.productId !== null || item.brandId !== null)
+      );
       
       // Manual pagination for keyword search
       const startIndex = (page - 1) * limit;
@@ -79,6 +90,10 @@ exports.getAllInventory = async (page, limit, keyword, status, vendorId, product
         {
           path: 'productId',
           select: 'productName packingSize cartonSize brandId groupId subGroupId'
+        },
+        {
+          path: 'brandId',
+          select: 'brandName'
         }
       ]
     });
@@ -320,8 +335,88 @@ exports.adjustInventory = async (vendorId, inventoryId, adjustmentData) => {
     // Return the populated inventory
     return await Inventory.findById(updatedInventory._id)
       .populate('productId', 'productName packingSize cartonSize brandId groupId subGroupId')
+      .populate('brandId', 'brandName')
       .populate('vendorId', 'vendorName vendorEmail');
   } catch (error) {
+    throw error;
+  }
+};
+
+// New service method for grouped inventory view
+exports.getGroupedInventory = async (page, limit, keyword, status, vendorId, brandId, productId, stockStatus) => {
+  try {
+    const options = {};
+    
+    // Add filters to options
+    if (brandId && brandId !== "") options.brandId = brandId;
+    if (productId && productId !== "") options.productId = productId;
+    if (stockStatus && stockStatus !== "") options.stockStatus = stockStatus;
+    if (keyword && keyword !== "") options.keyword = keyword;
+    if (status && status !== "") options.status = status;
+
+    // Get grouped inventory data
+    const groupedData = await Inventory.getGroupedInventory(vendorId, options);
+    
+    // Manual pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedData = groupedData.slice(startIndex, endIndex);
+    
+    // Transform the data to match the required format
+    const transformedData = paginatedData.map(item => ({
+      productId: item._id.productId,
+      productName: item._id.productName,
+      brandId: item._id.brandId,
+      brandName: item._id.brandName,
+      packingSize: item._id.packingSize,
+      cartonSize: item._id.cartonSize,
+      groupId: item._id.groupId,
+      subGroupId: item._id.subGroupId,
+      totalQuantity: item.totalQuantity,
+      totalBatches: item.totalBatches,
+      availableQuantity: item.availableQuantity,
+      overallStockStatus: item.overallStockStatus,
+      lowStockBatches: item.lowStockBatches,
+      outOfStockBatches: item.outOfStockBatches,
+      expiredBatches: item.expiredBatches,
+      expiringSoonBatches: item.expiringSoonBatches,
+      lastUpdated: item.lastUpdated,
+      batches: item.batches // This contains all batch details for the modal
+    }));
+
+    return {
+      docs: transformedData,
+      totalDocs: groupedData.length,
+      limit,
+      page,
+      totalPages: Math.ceil(groupedData.length / limit),
+      pagingCounter: startIndex + 1,
+      hasPrevPage: page > 1,
+      hasNextPage: endIndex < groupedData.length,
+      prevPage: page > 1 ? page - 1 : null,
+      nextPage: endIndex < groupedData.length ? page + 1 : null
+    };
+  } catch (error) {
+    console.error('Error in getGroupedInventory:', error);
+    throw error;
+  }
+};
+
+// Service method to get batch details for a specific product (for modal)
+exports.getBatchDetailsByProduct = async (vendorId, productId) => {
+  try {
+    const batches = await Inventory.find({
+      vendorId,
+      productId,
+      isActive: true
+    })
+    .populate('productId', 'productName packingSize cartonSize')
+    .populate('brandId', 'brandName')
+    .sort({ expiryDate: 1 });
+
+    return batches;
+  } catch (error) {
+    console.error('Error in getBatchDetailsByProduct:', error);
     throw error;
   }
 };

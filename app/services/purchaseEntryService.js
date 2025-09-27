@@ -185,8 +185,11 @@ exports.createPurchaseEntry = async (purchaseEntryData) => {
 };
 
 exports.updatePurchaseEntry = async (vendorId, purchaseEntryId, updateData) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const purchaseEntry = await PurchaseEntry.findOne({ _id: purchaseEntryId, vendorId });
+    const purchaseEntry = await PurchaseEntry.findOne({ _id: purchaseEntryId, vendorId }).session(session);
     if (!purchaseEntry) {
       throw new Error('Purchase entry not found');
     }
@@ -197,7 +200,7 @@ exports.updatePurchaseEntry = async (vendorId, purchaseEntryId, updateData) => {
         vendorId,
         invoiceNumber: updateData.invoiceNumber,
         _id: { $ne: purchaseEntryId }
-      });
+      }).session(session);
 
       if (existingEntry) {
         throw new Error(`Purchase entry with invoice number "${updateData.invoiceNumber}" already exists`);
@@ -207,21 +210,76 @@ exports.updatePurchaseEntry = async (vendorId, purchaseEntryId, updateData) => {
     // Validate brand if it's being updated
     if (updateData.brandId) {
       const Brand = require('../models/brandModel');
-      const brand = await Brand.findById(updateData.brandId);
+      const brand = await Brand.findById(updateData.brandId).session(session);
       if (!brand) {
         throw new Error('Brand not found');
       }
     }
 
-    Object.assign(purchaseEntry, updateData);
-    const updatedPurchaseEntry = await purchaseEntry.save();
+    // Extract products from updateData before updating purchase entry
+    const products = updateData.products;
+    const purchaseEntryUpdateData = { ...updateData };
+    delete purchaseEntryUpdateData.products;
+
+    // Update purchase entry fields
+    Object.assign(purchaseEntry, purchaseEntryUpdateData);
+    const updatedPurchaseEntry = await purchaseEntry.save({ session });
+
+    // Handle products update if provided
+    if (products && Array.isArray(products)) {
+      // Delete existing purchase products and reverse inventory changes
+      const existingProducts = await PurchaseProduct.find({ 
+        purchaseEntryId, 
+        vendorId 
+      }).session(session);
+
+      // Reverse inventory changes for existing products
+      for (const existingProduct of existingProducts) {
+        const inventory = await Inventory.findOne({
+          productId: existingProduct.productId,
+          vendorId,
+          batchNumber: existingProduct.batchNumber
+        }).session(session);
+
+        if (inventory) {
+          // Decrease inventory quantities
+          inventory.cartons = Math.max(0, inventory.cartons - existingProduct.cartons);
+          inventory.pieces = Math.max(0, inventory.pieces - existingProduct.pieces);
+          inventory.bonus = Math.max(0, inventory.bonus - existingProduct.bonus);
+          inventory.quantity = Math.max(0, inventory.quantity - existingProduct.quantity);
+          
+          // If quantity becomes 0, mark as inactive
+          if (inventory.quantity === 0) {
+            inventory.isActive = false;
+          }
+          
+          await inventory.save({ session });
+        }
+      }
+
+      // Delete existing purchase products
+      await PurchaseProduct.deleteMany({ 
+        purchaseEntryId, 
+        vendorId 
+      }).session(session);
+
+      // Create new purchase products
+      if (products.length > 0) {
+        await this.createPurchaseProducts(purchaseEntryId, products, vendorId, session, purchaseEntryId);
+      }
+    }
+
+    await session.commitTransaction();
     
-    // Return the populated purchase entry
-    return await PurchaseEntry.findById(updatedPurchaseEntry._id)
-      .populate('vendorId', 'vendorName vendorEmail')
-      .populate('brandId', 'brandName');
+    // Return the populated purchase entry with products
+    const result = await this.getPurchaseEntryById(purchaseEntryId, vendorId);
+    return result;
   } catch (error) {
+    await session.abortTransaction();
+    console.error('Error updating purchase entry:', error);
     throw error;
+  } finally {
+    session.endSession();
   }
 };
 
@@ -326,7 +384,7 @@ exports.getPurchaseStats = async (vendorId, options = {}) => {
   }
 };
 
-exports.createPurchaseProducts = async (purchaseEntryId, products, vendorId, session = null) => {
+exports.createPurchaseProducts = async (purchaseEntryId, products, vendorId, session = null, excludePurchaseEntryId = null) => {
   try {
     const purchaseProducts = [];
     
@@ -338,11 +396,19 @@ exports.createPurchaseProducts = async (purchaseEntryId, products, vendorId, ses
       }
       
       // Check if batch already exists for this product and vendor
-      const existingBatch = await PurchaseProduct.findOne({
+      // Exclude the current purchase entry being updated to avoid false positives
+      const batchQuery = {
         productId: productData.productId,
         vendorId,
         batchNumber: productData.batchNumber
-      });
+      };
+      
+      // If we're updating, exclude the current purchase entry from the check
+      if (excludePurchaseEntryId) {
+        batchQuery.purchaseEntryId = { $ne: excludePurchaseEntryId };
+      }
+      
+      const existingBatch = await PurchaseProduct.findOne(batchQuery);
       
       if (existingBatch) {
         throw new Error(`Batch number "${productData.batchNumber}" already exists for this product`);
@@ -404,11 +470,46 @@ exports.addPaymentToCredit = async (vendorId, purchaseEntryId, paymentData) => {
   }
 };
 
+exports.removePaymentFromCredit = async (vendorId, purchaseEntryId, paymentIndex) => {
+  try {
+    const purchaseEntry = await PurchaseEntry.findOne({ _id: purchaseEntryId, vendorId });
+    if (!purchaseEntry) {
+      throw new Error('Purchase entry not found');
+    }
+
+    if (paymentIndex < 0 || paymentIndex >= purchaseEntry.paymentDetails.length) {
+      throw new Error('Invalid payment index');
+    }
+
+    // Remove the payment at the specified index
+    purchaseEntry.paymentDetails.splice(paymentIndex, 1);
+
+    const updatedPurchaseEntry = await purchaseEntry.save();
+    
+    // Return the populated purchase entry
+    return await PurchaseEntry.findById(updatedPurchaseEntry._id)
+      .populate('vendorId', 'vendorName vendorEmail')
+      .populate('brandId', 'brandName');
+  } catch (error) {
+    throw error;
+  }
+};
+
 exports.updateInventoryForPurchase = async (purchaseProduct, session = null) => {
   try {
+    // Get the purchase entry to obtain brandId
+    const purchaseEntry = await PurchaseEntry.findById(purchaseProduct.purchaseEntryId)
+      .select('brandId')
+      .session(session);
+    
+    if (!purchaseEntry) {
+      throw new Error('Purchase entry not found');
+    }
+
     const inventoryData = {
       vendorId: purchaseProduct.vendorId,
       productId: purchaseProduct.productId,
+      brandId: purchaseEntry.brandId, // Include brandId from purchase entry
       batchNumber: purchaseProduct.batchNumber,
       expiryDate: purchaseProduct.expiryDate,
       currentQuantity: purchaseProduct.quantity + purchaseProduct.bonus,
@@ -442,6 +543,37 @@ exports.updateInventoryForPurchase = async (purchaseProduct, session = null) => 
         );
     
     return inventory;
+  } catch (error) {
+    throw error;
+  }
+};
+
+exports.getLastInvoiceByBrand = async (vendorId, brandId) => {
+  try {
+    // Find the most recent purchase entry for the given vendor and brand
+    const lastInvoice = await PurchaseEntry.findOne({ 
+      vendorId, 
+      brandId, 
+      isActive: true 
+    })
+    .sort({ updatedAt: -1 }) // Sort by updatedAt in descending order
+    .populate('brandId', 'brandName')
+    .select('invoiceNumber grandTotal date createdAt');
+
+    if (!lastInvoice) {
+      return {
+        lastInvoiceNumber: null,
+        lastInvoicePrice: null,
+        message: 'No Record'
+      };
+    }
+
+    return {
+      lastInvoiceNumber: lastInvoice.invoiceNumber,
+      lastInvoicePrice: lastInvoice.grandTotal,
+      lastInvoiceDate: lastInvoice.date,
+      message: 'Last invoice found'
+    };
   } catch (error) {
     throw error;
   }

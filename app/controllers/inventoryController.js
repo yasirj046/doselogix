@@ -10,9 +10,10 @@ exports.getAllInventory = async (req, res) => {
     const productId = req.query.productId || "";
     const batchNumber = req.query.batchNumber || "";
     const stockStatus = req.query.stockStatus || "";
+    const brandId = req.query.brandId || "";
     const vendorId = req.vendor.id;
 
-    const result = await inventoryService.getAllInventory(page, limit, keyword, status, vendorId, productId, batchNumber, stockStatus);
+    const result = await inventoryService.getAllInventory(page, limit, keyword, status, vendorId, productId, batchNumber, stockStatus, brandId);
     
     res.status(200).json(
       createResponse(result, null, "Inventory retrieved successfully")
@@ -72,7 +73,7 @@ exports.getInventoryByProduct = async (req, res) => {
 exports.getLowStockItems = async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    const threshold = parseInt(req.query.threshold) || 10;
+    const threshold = parseInt(req.query.threshold) || 50;
 
     const lowStockItems = await inventoryService.getLowStockItems(vendorId, threshold);
     
@@ -355,6 +356,50 @@ exports.adjustInventory = async (req, res) => {
     );
   } catch (error) {
     console.error('Error in adjustInventory:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
+
+// New controller method for grouped inventory view (main inventory page)
+exports.getGroupedInventory = async (req, res) => {
+  try {
+    const page = parseInt(req.query.pageNumber) || 1;
+    const limit = parseInt(req.query.pageSize) || 10;
+    const keyword = req.query.keyword || "";
+    const status = req.query.status || "";
+    const brandId = req.query.brandId || "";
+    const productId = req.query.productId || "";
+    const stockStatus = req.query.stockStatus || "";
+    const vendorId = req.vendor.id;
+
+    const result = await inventoryService.getGroupedInventory(page, limit, keyword, status, vendorId, brandId, productId, stockStatus);
+    
+    res.status(200).json(
+      createResponse(result, null, "Grouped inventory retrieved successfully")
+    );
+  } catch (error) {
+    console.error('Error in getGroupedInventory:', error);
+    res.status(200).json(createResponse([], error.message));
+  }
+};
+
+// New controller method to get batch details for modal
+exports.getBatchDetailsByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const vendorId = req.vendor.id;
+
+    if (!productId) {
+      return res.status(400).json(createResponse(null, "Product ID is required"));
+    }
+
+    const batches = await inventoryService.getBatchDetailsByProduct(vendorId, productId);
+    
+    res.status(200).json(
+      createResponse(batches, null, "Batch details retrieved successfully")
+    );
+  } catch (error) {
+    console.error('Error in getBatchDetailsByProduct:', error);
     res.status(400).json(createResponse(null, error.message));
   }
 };

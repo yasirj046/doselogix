@@ -10,7 +10,13 @@ router.use(authenticate);
 // Create a new inventory item
 router.post('/', multiTenancy, inventoryController.createInventory);
 
-// Get all inventory with pagination and filtering
+// Get grouped inventory (main inventory view with product grouping)
+router.get('/grouped', multiTenancy, inventoryController.getGroupedInventory);
+
+// Get batch details for a specific product (for modal)
+router.get('/batch-details/:productId', multiTenancy, inventoryController.getBatchDetailsByProduct);
+
+// Get all inventory with pagination and filtering (detailed view)
 router.get('/', multiTenancy, inventoryController.getAllInventory);
 
 // Get inventory by product

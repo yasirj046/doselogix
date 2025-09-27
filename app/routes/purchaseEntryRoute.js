@@ -19,6 +19,9 @@ router.get('/date-range', multiTenancy, purchaseEntryController.getPurchaseEntri
 // Get purchase statistics
 router.get('/stats', multiTenancy, purchaseEntryController.getPurchaseStats);
 
+// Get last invoice data by brand
+router.get('/last-invoice/:brandId', multiTenancy, purchaseEntryController.getLastInvoiceByBrand);
+
 // Get a single purchase entry by ID
 router.get('/:id', multiTenancy, purchaseEntryController.getPurchaseEntryById);
 
@@ -30,6 +33,9 @@ router.patch('/:id/toggle-status', multiTenancy, purchaseEntryController.toggleP
 
 // Add payment to credit
 router.post('/:id/add-payment', multiTenancy, purchaseEntryController.addPaymentToCredit);
+
+// Remove payment from credit
+router.delete('/:id/remove-payment/:paymentIndex', multiTenancy, purchaseEntryController.removePaymentFromCredit);
 
 // Delete a purchase entry
 router.delete('/:id', multiTenancy, purchaseEntryController.deletePurchaseEntry);

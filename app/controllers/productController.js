@@ -69,7 +69,6 @@ exports.createProduct = async (req, res) => {
     // Trim string fields
     if (productData.productName) productData.productName = productData.productName.trim();
     if (productData.packingSize) productData.packingSize = productData.packingSize.trim();
-    if (productData.cartonSize) productData.cartonSize = productData.cartonSize.trim();
 
     const createdProduct = await productService.createProduct(productData);
     

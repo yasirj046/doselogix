@@ -19,6 +19,14 @@ const inventorySchema = new mongoose.Schema(
       index: true
     },
     
+    // Reference to brand
+    brandId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Brand',
+      required: [true, 'Brand ID is required'],
+      index: true
+    },
+    
     // Batch details
     batchNumber: {
       type: String,
@@ -106,11 +114,13 @@ inventorySchema.plugin(mongoosePaginate);
 
 // Add indexes for better performance
 inventorySchema.index({ vendorId: 1, productId: 1 });
+inventorySchema.index({ vendorId: 1, brandId: 1 });
 inventorySchema.index({ vendorId: 1, batchNumber: 1 });
 inventorySchema.index({ vendorId: 1, expiryDate: 1 });
 inventorySchema.index({ vendorId: 1, isActive: 1 });
 inventorySchema.index({ vendorId: 1, currentQuantity: 1 });
 inventorySchema.index({ productId: 1 });
+inventorySchema.index({ brandId: 1 });
 
 // Compound unique index for batch per product per vendor
 inventorySchema.index({ vendorId: 1, productId: 1, batchNumber: 1 }, { unique: true });
@@ -123,7 +133,7 @@ inventorySchema.virtual('availableQuantity').get(function() {
 // Virtual for stock status
 inventorySchema.virtual('stockStatus').get(function() {
   if (this.currentQuantity === 0) return 'Out of Stock';
-  if (this.currentQuantity <= 10) return 'Low Stock';
+  if (this.currentQuantity < 50) return 'Low Stock';
   if (this.availableQuantity === 0) return 'Reserved';
   return 'In Stock';
 });
@@ -178,10 +188,10 @@ inventorySchema.statics.findByProduct = async function(productId, vendorId, opti
 };
 
 // Static method to find low stock items
-inventorySchema.statics.findLowStock = async function(vendorId, threshold = 10) {
+inventorySchema.statics.findLowStock = async function(vendorId, threshold = 50) {
   return await this.find({
     vendorId,
-    currentQuantity: { $lte: threshold, $gt: 0 },
+    currentQuantity: { $lt: threshold, $gt: 0 },
     isActive: true
   })
     .populate('productId', 'productName packingSize cartonSize brandId groupId subGroupId')
@@ -241,7 +251,7 @@ inventorySchema.statics.getInventorySummary = async function(vendorId) {
         totalReserved: { $sum: '$reservedQuantity' },
         lowStockCount: {
           $sum: {
-            $cond: [{ $lte: ['$currentQuantity', 10] }, 1, 0]
+            $cond: [{ $lt: ['$currentQuantity', 50] }, 1, 0]
           }
         },
         outOfStockCount: {
@@ -310,6 +320,199 @@ inventorySchema.statics.getInventoryValue = async function(vendorId) {
     totalValueBySale: 0,
     totalValueByRetail: 0
   };
+};
+
+// Static method to get grouped inventory by product (for main inventory view)
+inventorySchema.statics.getGroupedInventory = async function(vendorId, options = {}) {
+  const pipeline = [
+    { 
+      $match: { 
+        vendorId: new mongoose.Types.ObjectId(vendorId),
+        isActive: true
+      }
+    }
+  ];
+
+  // Add brand filter if provided
+  if (options.brandId) {
+    pipeline[0].$match.brandId = new mongoose.Types.ObjectId(options.brandId);
+  }
+
+  // Add product filter if provided
+  if (options.productId) {
+    pipeline[0].$match.productId = new mongoose.Types.ObjectId(options.productId);
+  }
+
+  // Add stock status filter if provided
+  if (options.stockStatus) {
+    switch (options.stockStatus) {
+      case 'out_of_stock':
+        pipeline[0].$match.currentQuantity = 0;
+        break;
+      case 'low_stock':
+        pipeline[0].$match.currentQuantity = { $gt: 0, $lt: 50 };
+        break;
+      case 'in_stock':
+        pipeline[0].$match.currentQuantity = { $gte: 50 };
+        break;
+      case 'expired':
+        pipeline[0].$match.expiryDate = { $lt: new Date() };
+        break;
+      case 'expiring_soon':
+        pipeline[0].$match.expiryDate = { 
+          $gte: new Date(),
+          $lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        };
+        break;
+    }
+  }
+
+  pipeline.push(
+    // Populate product and brand details
+    {
+      $lookup: {
+        from: 'products',
+        localField: 'productId',
+        foreignField: '_id',
+        as: 'product'
+      }
+    },
+    {
+      $lookup: {
+        from: 'brands',
+        localField: 'brandId',
+        foreignField: '_id',
+        as: 'brand'
+      }
+    },
+    // Unwind the arrays
+    { $unwind: '$product' },
+    { $unwind: '$brand' },
+    // Group by product to calculate totals
+    {
+      $group: {
+        _id: {
+          productId: '$productId',
+          productName: '$product.productName',
+          brandId: '$brandId',
+          brandName: '$brand.brandName',
+          packingSize: '$product.packingSize',
+          cartonSize: '$product.cartonSize',
+          groupId: '$product.groupId',
+          subGroupId: '$product.subGroupId'
+        },
+        totalQuantity: { $sum: '$currentQuantity' },
+        totalBatches: { $sum: 1 },
+        availableQuantity: { $sum: { $subtract: ['$currentQuantity', '$reservedQuantity'] } },
+        batches: {
+          $push: {
+            _id: '$_id',
+            batchNumber: '$batchNumber',
+            expiryDate: '$expiryDate',
+            currentQuantity: '$currentQuantity',
+            reservedQuantity: '$reservedQuantity',
+            availableQuantity: { $subtract: ['$currentQuantity', '$reservedQuantity'] },
+            lastPurchasePrice: '$lastPurchasePrice',
+            averageCost: '$averageCost',
+            salePrice: '$salePrice',
+            minSalePrice: '$minSalePrice',
+            retailPrice: '$retailPrice',
+            invoicePrice: '$invoicePrice',
+            expiryStatus: {
+              $let: {
+                vars: {
+                  diffDays: {
+                    $divide: [
+                      { $subtract: ['$expiryDate', new Date()] },
+                      1000 * 60 * 60 * 24
+                    ]
+                  }
+                },
+                in: {
+                  $cond: [
+                    { $lt: ['$$diffDays', 0] }, 'Expired',
+                    {
+                      $cond: [
+                        { $lte: ['$$diffDays', 30] }, 'Expiring Soon',
+                        {
+                          $cond: [
+                            { $lte: ['$$diffDays', 90] }, 'Near Expiry',
+                            'Valid'
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            lastUpdated: '$lastUpdated',
+            createdAt: '$createdAt'
+          }
+        },
+        lowStockBatches: {
+          $sum: {
+            $cond: [{ $and: [{ $lt: ['$currentQuantity', 50] }, { $gt: ['$currentQuantity', 0] }] }, 1, 0]
+          }
+        },
+        outOfStockBatches: {
+          $sum: {
+            $cond: [{ $eq: ['$currentQuantity', 0] }, 1, 0]
+          }
+        },
+        expiredBatches: {
+          $sum: {
+            $cond: [{ $lt: ['$expiryDate', new Date()] }, 1, 0]
+          }
+        },
+        expiringSoonBatches: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $gte: ['$expiryDate', new Date()] },
+                  { $lte: ['$expiryDate', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)] }
+                ]
+              }, 1, 0
+            ]
+          }
+        },
+        lastUpdated: { $max: '$lastUpdated' }
+      }
+    },
+    // Calculate overall stock status for the product
+    {
+      $addFields: {
+        overallStockStatus: {
+          $cond: [
+            { $eq: ['$totalQuantity', 0] }, 'Out of Stock',
+            {
+              $cond: [
+                { $lt: ['$totalQuantity', 50] }, 'Low Stock',
+                'In Stock'
+              ]
+            }
+          ]
+        }
+      }
+    },
+    // Sort by product name
+    { $sort: { '_id.productName': 1 } }
+  );
+
+  // Add keyword search if provided
+  if (options.keyword) {
+    pipeline.splice(4, 0, {
+      $match: {
+        $or: [
+          { 'product.productName': { $regex: options.keyword, $options: 'i' } },
+          { 'brand.brandName': { $regex: options.keyword, $options: 'i' } }
+        ]
+      }
+    });
+  }
+
+  return await this.aggregate(pipeline);
 };
 
 // Static method to reserve stock

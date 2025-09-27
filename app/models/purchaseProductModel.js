@@ -178,28 +178,40 @@ purchaseProductSchema.virtual('netAmount').get(function() {
 });
 
 // Pre-save middleware to calculate derived fields
-purchaseProductSchema.pre('save', function(next) {
-  // Calculate total quantity
-  this.quantity = this.cartons + this.pieces;
-  
-  // Calculate gross amount
-  const grossAmount = this.quantity * this.netPrice;
-  
-  // Calculate discount amount
-  let discountAmount = 0;
-  if (this.discountType === 'percentage') {
-    discountAmount = grossAmount * (this.discount / 100);
-  } else {
-    discountAmount = this.discount;
+purchaseProductSchema.pre('save', async function(next) {
+  try {
+    // Get the product to access cartonSize
+    const Product = require('./productModel');
+    const product = await Product.findById(this.productId);
+    
+    if (!product) {
+      throw new Error('Product not found');
+    }
+    
+    // Calculate total quantity: (cartons * cartonSize) + pieces
+    this.quantity = (this.cartons * product.cartonSize) + this.pieces;
+    
+    // Calculate gross amount
+    const grossAmount = this.quantity * this.netPrice;
+    
+    // Calculate discount amount
+    let discountAmount = 0;
+    if (this.discountType === 'percentage') {
+      discountAmount = grossAmount * (this.discount / 100);
+    } else {
+      discountAmount = this.discount;
+    }
+    
+    // Calculate total amount
+    this.totalAmount = grossAmount - discountAmount;
+    
+    // Calculate effective cost per piece
+    this.effectiveCostPerPiece = this.totalAmount / (this.quantity + this.bonus);
+    
+    next();
+  } catch (error) {
+    next(error);
   }
-  
-  // Calculate total amount
-  this.totalAmount = grossAmount - discountAmount;
-  
-  // Calculate effective cost per piece
-  this.effectiveCostPerPiece = this.totalAmount / (this.quantity + this.bonus);
-  
-  next();
 });
 
 // Static method to find purchase products by purchase entry

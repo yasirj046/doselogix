@@ -50,10 +50,10 @@ const productSchema = new mongoose.Schema(
     },
     
     cartonSize: {
-      type: String,
+      type: Number,
       required: [true, 'Carton size is required'],
-      trim: true,
-      maxlength: [100, 'Carton size cannot exceed 100 characters']
+      min: [1, 'Carton size must be at least 1'],
+      max: [10000, 'Carton size cannot exceed 10000']
     },
     
     // System fields

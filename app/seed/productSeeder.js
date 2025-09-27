@@ -29,96 +29,96 @@ const productSeeder = async () => {
       { 
         productName: 'Amoxicillin Capsules',
         packingSize: '500mg x 20 capsules',
-        cartonSize: '10 strips x 20 boxes'
+        cartonSize: 200  // 10 strips x 20 boxes
       },
       { 
         productName: 'Ampicillin Injection',
         packingSize: '1g vial',
-        cartonSize: '10 vials x 5 boxes'
+        cartonSize: 50   // 10 vials x 5 boxes
       },
       
       // Antibiotics - Cephalosporin
       { 
         productName: 'Cefixime Tablets',
         packingSize: '200mg x 10 tablets',
-        cartonSize: '10 strips x 20 boxes'
+        cartonSize: 200  // 10 strips x 20 boxes
       },
       { 
         productName: 'Ceftriaxone Injection',
         packingSize: '1g vial',
-        cartonSize: '10 vials x 5 boxes'
+        cartonSize: 50   // 10 vials x 5 boxes
       },
       
       // Analgesics - NSAIDs
       { 
         productName: 'Ibuprofen Tablets',
         packingSize: '400mg x 20 tablets',
-        cartonSize: '10 strips x 30 boxes'
+        cartonSize: 300  // 10 strips x 30 boxes
       },
       { 
         productName: 'Diclofenac Gel',
         packingSize: '30g tube',
-        cartonSize: '20 tubes x 10 boxes'
+        cartonSize: 200  // 20 tubes x 10 boxes
       },
       
       // Cardiovascular - ACE Inhibitors
       { 
         productName: 'Enalapril Tablets',
         packingSize: '5mg x 30 tablets',
-        cartonSize: '10 strips x 20 boxes'
+        cartonSize: 200  // 10 strips x 20 boxes
       },
       { 
         productName: 'Lisinopril Tablets',
         packingSize: '10mg x 30 tablets',
-        cartonSize: '10 strips x 20 boxes'
+        cartonSize: 200  // 10 strips x 20 boxes
       },
       
       // Antidiabetics - Insulin
       { 
         productName: 'Human Insulin',
         packingSize: '100IU/ml x 10ml vial',
-        cartonSize: '10 vials x 5 boxes'
+        cartonSize: 50   // 10 vials x 5 boxes
       },
       { 
         productName: 'Insulin Glargine',
         packingSize: '100IU/ml x 3ml pen',
-        cartonSize: '5 pens x 10 boxes'
+        cartonSize: 50   // 5 pens x 10 boxes
       },
       
       // Respiratory - Bronchodilators
       { 
         productName: 'Salbutamol Inhaler',
         packingSize: '100mcg x 200 doses',
-        cartonSize: '10 inhalers x 5 boxes'
+        cartonSize: 50   // 10 inhalers x 5 boxes
       },
       { 
         productName: 'Theophylline Tablets',
         packingSize: '300mg x 30 tablets',
-        cartonSize: '10 strips x 15 boxes'
+        cartonSize: 150  // 10 strips x 15 boxes
       },
       
       // Gastrointestinal - Proton Pump Inhibitors
       { 
         productName: 'Omeprazole Capsules',
         packingSize: '20mg x 30 capsules',
-        cartonSize: '10 strips x 20 boxes'
+        cartonSize: 200  // 10 strips x 20 boxes
       },
       { 
         productName: 'Pantoprazole Tablets',
         packingSize: '40mg x 15 tablets',
-        cartonSize: '10 strips x 25 boxes'
+        cartonSize: 250  // 10 strips x 25 boxes
       },
       
       // Additional products for variety
       { 
         productName: 'Paracetamol Syrup',
         packingSize: '120mg/5ml x 60ml bottle',
-        cartonSize: '20 bottles x 10 boxes'
+        cartonSize: 200  // 20 bottles x 10 boxes
       },
       { 
         productName: 'Vitamin B Complex',
         packingSize: '30 tablets',
-        cartonSize: '10 strips x 30 boxes'
+        cartonSize: 300  // 10 strips x 30 boxes
       }
     ];
 

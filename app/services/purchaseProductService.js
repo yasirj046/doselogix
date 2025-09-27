@@ -283,9 +283,19 @@ exports.togglePurchaseProductStatus = async (vendorId, purchaseProductId) => {
 
 exports.updateInventoryForPurchase = async (purchaseProduct) => {
   try {
+    // Get the purchase entry to obtain brandId
+    const PurchaseEntry = require('../models/purchaseEntryModel');
+    const purchaseEntry = await PurchaseEntry.findById(purchaseProduct.purchaseEntryId)
+      .select('brandId');
+    
+    if (!purchaseEntry) {
+      throw new Error('Purchase entry not found');
+    }
+
     const inventoryData = {
       vendorId: purchaseProduct.vendorId,
       productId: purchaseProduct.productId,
+      brandId: purchaseEntry.brandId, // Include brandId from purchase entry
       batchNumber: purchaseProduct.batchNumber,
       expiryDate: purchaseProduct.expiryDate,
       lastPurchasePrice: purchaseProduct.effectiveCostPerPiece,

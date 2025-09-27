@@ -253,3 +253,40 @@ exports.addPaymentToCredit = async (req, res) => {
     res.status(400).json(createResponse(null, error.message));
   }
 };
+
+exports.removePaymentFromCredit = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const purchaseEntryId = req.params.id;
+    const { paymentIndex } = req.params;
+
+    const result = await purchaseEntryService.removePaymentFromCredit(vendorId, purchaseEntryId, parseInt(paymentIndex));
+    
+    res.status(200).json(
+      createResponse(result, null, "Payment removed from credit successfully")
+    );
+  } catch (error) {
+    console.error('Error in removePaymentFromCredit:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
+
+exports.getLastInvoiceByBrand = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { brandId } = req.params;
+
+    if (!brandId) {
+      return res.status(400).json(createResponse(null, "Brand ID is required"));
+    }
+
+    const lastInvoiceData = await purchaseEntryService.getLastInvoiceByBrand(vendorId, brandId);
+    
+    res.status(200).json(
+      createResponse(lastInvoiceData, null, "Last invoice data retrieved successfully")
+    );
+  } catch (error) {
+    console.error('Error in getLastInvoiceByBrand:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
