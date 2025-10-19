@@ -165,4 +165,24 @@ exports.getProductsByFilters = async (req, res) => {
   } catch (error) {
     res.status(200).json(util.createResponse([], error));
   }
-}; 
+};
+
+exports.getCustomersByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const customers = await lookupService.getCustomersByVendor(vendorId);
+    res.status(200).json(util.createResponse(customers, null, "Vendor Customers"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getEmployeesByVendor = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const employees = await lookupService.getEmployeesByVendor(vendorId);
+    res.status(200).json(util.createResponse(employees, null, "Vendor Employees"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};

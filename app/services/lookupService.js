@@ -8,6 +8,8 @@ const Brand = require("../models/brandModel");
 const Group = require("../models/groupModel");
 const SubGroup = require("../models/subGroupModel");
 const Product = require("../models/productModel");
+const UserCustomers = require("../models/userCustomersModel");
+const Employee = require("../models/employeeModel");
 
 exports.getAllProvinces = async () => {
   try {
@@ -295,6 +297,41 @@ exports.getProductsByFilters = async (vendorId, filters = {}) => {
     }));
   } catch (error) {
     console.error('Error in getProductsByFilters:', error);
+    throw error;
+  }
+};
+
+exports.getCustomersByVendor = async (vendorId) => {
+  try {
+    const customers = await UserCustomers.find({ vendorId, isActive: true })
+      .select('_id customerName customerLicenseNumber customerLicenseExpiryDate')
+      .sort({ customerName: 1 });
+    
+    return customers.map(customer => ({
+      label: customer.customerName,
+      value: customer._id.toString(),
+      customerLicenseNumber: customer.customerLicenseNumber,
+      customerLicenseExpiryDate: customer.customerLicenseExpiryDate
+    }));
+  } catch (error) {
+    console.error('Error in getCustomersByVendor:', error);
+    throw error;
+  }
+};
+
+exports.getEmployeesByVendor = async (vendorId) => {
+  try {
+    const employees = await Employee.find({ vendorId, isActive: true })
+      .select('_id employeeName designation')
+      .sort({ employeeName: 1 });
+    
+    return employees.map(employee => ({
+      label: employee.employeeName,
+      value: employee._id.toString(),
+      designation: employee.designation
+    }));
+  } catch (error) {
+    console.error('Error in getEmployeesByVendor:', error);
     throw error;
   }
 }; 

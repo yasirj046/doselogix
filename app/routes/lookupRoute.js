@@ -32,4 +32,8 @@ router.get("/subgroups", authenticate, multiTenancy, lookupController.getSubGrou
 router.get("/subgroups-by-group", authenticate, multiTenancy, lookupController.getSubGroupsByGroup);
 router.get("/products", authenticate, multiTenancy, lookupController.getProductsByFilters);
 
+// Customer and Employee lookups (require authentication)
+router.get("/customers", authenticate, multiTenancy, lookupController.getCustomersByVendor);
+router.get("/employees", authenticate, multiTenancy, lookupController.getEmployeesByVendor);
+
 module.exports = router; 
