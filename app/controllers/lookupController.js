@@ -186,3 +186,12 @@ exports.getEmployeesByVendor = async (req, res) => {
     res.status(200).json(util.createResponse([], error));
   }
 };
+
+exports.getExpenseCategories = async (req, res) => {
+  try {
+    const categories = await lookupService.getExpenseCategories();
+    res.status(200).json(util.createResponse(categories, null, "All Expense Categories"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};

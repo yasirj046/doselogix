@@ -16,6 +16,7 @@ const purchaseProductRoutes = require('./app/routes/purchaseProductRoute');
 const salesInvoiceRoutes = require('./app/routes/salesInvoiceRoute');
 const salesProductRoutes = require('./app/routes/salesProductRoute');
 const inventoryRoutes = require('./app/routes/inventoryRoute');
+const expenseRoutes = require('./app/routes/expenseRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 
@@ -63,6 +64,7 @@ app.use('/api/purchase-products', purchaseProductRoutes);
 app.use('/api/sales-invoices', salesInvoiceRoutes);
 app.use('/api/sales-products', salesProductRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 mongoose
   .connect(

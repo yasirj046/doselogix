@@ -334,4 +334,14 @@ exports.getEmployeesByVendor = async (vendorId) => {
     console.error('Error in getEmployeesByVendor:', error);
     throw error;
   }
+};
+
+exports.getExpenseCategories = async () => {
+  try {
+    const { EXPENSE_CATEGORIES } = require("../constants/expenseCategories");
+    return EXPENSE_CATEGORIES;
+  } catch (error) {
+    console.error('Error in getExpenseCategories:', error);
+    throw error;
+  }
 }; 

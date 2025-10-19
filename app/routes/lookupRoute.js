@@ -36,4 +36,7 @@ router.get("/products", authenticate, multiTenancy, lookupController.getProducts
 router.get("/customers", authenticate, multiTenancy, lookupController.getCustomersByVendor);
 router.get("/employees", authenticate, multiTenancy, lookupController.getEmployeesByVendor);
 
+// Expense categories lookup (no authentication required)
+router.get("/expense-categories", lookupController.getExpenseCategories);
+
 module.exports = router; 
