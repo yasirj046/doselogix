@@ -1,5 +1,6 @@
 const salesInvoiceService = require('../services/salesInvoiceService');
 const SalesInvoice = require('../models/salesInvoiceModel');
+const LedgerService = require('../services/ledgerService');
 const { createResponse } = require('../util/util');
 
 exports.getAllSalesInvoices = async (req, res) => {
@@ -86,6 +87,15 @@ exports.createSalesInvoice = async (req, res) => {
 
     const createdSalesInvoice = await salesInvoiceService.createSalesInvoice(salesInvoiceData);
     
+    // Automatically sync to ledger
+    try {
+      await LedgerService.createTransactionFromSalesInvoice(createdSalesInvoice);
+      console.log(`✓ Sales invoice ${createdSalesInvoice.deliveryLogNumber} automatically synced to ledger`);
+    } catch (ledgerError) {
+      console.error('Error syncing sales invoice to ledger:', ledgerError);
+      // Don't fail the request if ledger sync fails, just log it
+    }
+    
     res.status(201).json(createResponse(createdSalesInvoice, null, "Sales invoice created successfully"));
   } catch (error) {
     console.error('Create sales invoice error:', error);
@@ -123,6 +133,15 @@ exports.updateSalesInvoice = async (req, res) => {
     if (updateData.remarks) updateData.remarks = updateData.remarks.trim();
 
     const updatedSalesInvoice = await salesInvoiceService.updateSalesInvoice(vendorId, salesInvoiceId, updateData);
+    
+    // Automatically update ledger transaction when invoice is updated
+    try {
+      await LedgerService.updateTransactionFromInvoice(vendorId, salesInvoiceId, 'SALES_INVOICE');
+      console.log(`✓ Sales invoice ${salesInvoiceId} updated, ledger transaction updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger transaction:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
     
     res.status(200).json(
       createResponse(updatedSalesInvoice, null, "Sales invoice updated successfully")
@@ -234,6 +253,15 @@ exports.addPaymentToCredit = async (req, res) => {
 
     const result = await salesInvoiceService.addPaymentToCredit(vendorId, salesInvoiceId, paymentData);
     
+    // Automatically update ledger transaction payment status
+    try {
+      await LedgerService.updateTransactionPaymentStatus(vendorId, salesInvoiceId, 'SALES_INVOICE');
+      console.log(`✓ Payment added to sales invoice ${salesInvoiceId}, ledger updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger payment status:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
+    
     res.status(200).json(
       createResponse(result, null, "Payment added to credit successfully")
     );
@@ -250,6 +278,15 @@ exports.removePaymentFromCredit = async (req, res) => {
     const { paymentIndex } = req.params;
 
     const result = await salesInvoiceService.removePaymentFromCredit(vendorId, salesInvoiceId, parseInt(paymentIndex));
+    
+    // Automatically update ledger transaction payment status
+    try {
+      await LedgerService.updateTransactionPaymentStatus(vendorId, salesInvoiceId, 'SALES_INVOICE');
+      console.log(`✓ Payment removed from sales invoice ${salesInvoiceId}, ledger updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger payment status:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
     
     res.status(200).json(
       createResponse(result, null, "Payment removed from credit successfully")

@@ -1,4 +1,5 @@
 const expenseService = require('../services/expenseService');
+const LedgerService = require('../services/ledgerService');
 const { createResponse } = require('../util/util');
 
 exports.getAllExpenses = async (req, res) => {
@@ -86,6 +87,15 @@ exports.createExpense = async (req, res) => {
     if (expenseData.expenseCategory) expenseData.expenseCategory = expenseData.expenseCategory.trim();
 
     const createdExpense = await expenseService.createExpense(expenseData);
+    
+    // Automatically sync to ledger
+    try {
+      await LedgerService.createTransactionFromExpense(createdExpense);
+      console.log(`✓ Expense ${createdExpense.description} automatically synced to ledger`);
+    } catch (ledgerError) {
+      console.error('Error syncing expense to ledger:', ledgerError);
+      // Don't fail the request if ledger sync fails, just log it
+    }
     
     res.status(201).json(createResponse(createdExpense, null, "Expense created successfully"));
   } catch (error) {

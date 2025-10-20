@@ -1,4 +1,5 @@
 const purchaseEntryService = require('../services/purchaseEntryService');
+const LedgerService = require('../services/ledgerService');
 const { createResponse } = require('../util/util');
 
 exports.getAllPurchaseEntries = async (req, res) => {
@@ -78,6 +79,15 @@ exports.createPurchaseEntry = async (req, res) => {
 
     const createdPurchaseEntry = await purchaseEntryService.createPurchaseEntry(purchaseEntryData);
     
+    // Automatically sync to ledger
+    try {
+      await LedgerService.createTransactionFromPurchaseEntry(createdPurchaseEntry);
+      console.log(`✓ Purchase entry ${createdPurchaseEntry.invoiceNumber} automatically synced to ledger`);
+    } catch (ledgerError) {
+      console.error('Error syncing purchase entry to ledger:', ledgerError);
+      // Don't fail the request if ledger sync fails, just log it
+    }
+    
     res.status(201).json(createResponse(createdPurchaseEntry, null, "Purchase entry created successfully"));
   } catch (error) {
     console.error('Create purchase entry error:', error);
@@ -130,6 +140,15 @@ exports.updatePurchaseEntry = async (req, res) => {
     });
 
     const updatedPurchaseEntry = await purchaseEntryService.updatePurchaseEntry(vendorId, purchaseEntryId, updateData);
+    
+    // Automatically update ledger transaction when invoice is updated
+    try {
+      await LedgerService.updateTransactionFromInvoice(vendorId, purchaseEntryId, 'PURCHASE_INVOICE');
+      console.log(`✓ Purchase entry ${purchaseEntryId} updated, ledger transaction updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger transaction:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
     
     res.status(200).json(
       createResponse(updatedPurchaseEntry, null, "Purchase entry updated successfully")
@@ -245,6 +264,15 @@ exports.addPaymentToCredit = async (req, res) => {
 
     const result = await purchaseEntryService.addPaymentToCredit(vendorId, purchaseEntryId, paymentData);
     
+    // Automatically update ledger transaction payment status
+    try {
+      await LedgerService.updateTransactionPaymentStatus(vendorId, purchaseEntryId, 'PURCHASE_INVOICE');
+      console.log(`✓ Payment added to purchase entry ${purchaseEntryId}, ledger updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger payment status:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
+    
     res.status(200).json(
       createResponse(result, null, "Payment added to credit successfully")
     );
@@ -261,6 +289,15 @@ exports.removePaymentFromCredit = async (req, res) => {
     const { paymentIndex } = req.params;
 
     const result = await purchaseEntryService.removePaymentFromCredit(vendorId, purchaseEntryId, parseInt(paymentIndex));
+    
+    // Automatically update ledger transaction payment status
+    try {
+      await LedgerService.updateTransactionPaymentStatus(vendorId, purchaseEntryId, 'PURCHASE_INVOICE');
+      console.log(`✓ Payment removed from purchase entry ${purchaseEntryId}, ledger updated`);
+    } catch (ledgerError) {
+      console.error('Error updating ledger payment status:', ledgerError);
+      // Don't fail the request if ledger update fails, just log it
+    }
     
     res.status(200).json(
       createResponse(result, null, "Payment removed from credit successfully")

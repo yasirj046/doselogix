@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const http = require('http');
+const socketIo = require('socket.io');
 const userRoutes = require('./app/routes/userRoute');
 const userCustomersRoutes = require('./app/routes/userCustomersRoute');
 const lookupRoutes = require('./app/routes/lookupRoute');
@@ -17,8 +19,10 @@ const salesInvoiceRoutes = require('./app/routes/salesInvoiceRoute');
 const salesProductRoutes = require('./app/routes/salesProductRoute');
 const inventoryRoutes = require('./app/routes/inventoryRoute');
 const expenseRoutes = require('./app/routes/expenseRoute');
+const ledgerRoutes = require('./app/routes/ledgerRoute');
 const cors = require('cors');
 const morgan = require('morgan');
+const ledgerCronJob = require('./app/util/ledgerCronJob');
 
 dotenv.config();
 
@@ -65,6 +69,7 @@ app.use('/api/sales-invoices', salesInvoiceRoutes);
 app.use('/api/sales-products', salesProductRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/ledger', ledgerRoutes);
 
 mongoose
   .connect(
@@ -77,12 +82,55 @@ mongoose
   )
   .then(() => {
     console.log("MongoDB Connected");
+    
+    // Start ledger cron job
+    ledgerCronJob.start();
   })
   .catch((error) => console.log(error));
 
 const PORT = 4000;
-app.listen(PORT, () => {
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Store io instance in app for use in controllers
+app.set('io', io);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('🔌 Client connected:', socket.id);
+
+  // Handle vendor room joining
+  socket.on('join_vendor_room', (vendorId) => {
+    socket.join(`vendor_${vendorId}`);
+    console.log(`🏠 Client ${socket.id} joined vendor room: vendor_${vendorId}`);
+    
+    // Send confirmation back to client
+    socket.emit('room_joined', { vendorId, room: `vendor_${vendorId}` });
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', (reason) => {
+    console.log('🔌 Client disconnected:', socket.id, 'Reason:', reason);
+  });
+
+  // Handle connection errors
+  socket.on('error', (error) => {
+    console.error('❌ Socket error:', error);
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket server initialized`);
 });
 
 module.exports = app;
