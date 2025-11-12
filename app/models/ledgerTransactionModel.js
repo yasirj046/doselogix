@@ -63,17 +63,18 @@ const ledgerTransactionSchema = new mongoose.Schema(
     },
     
     // Debit side (money coming in)
+    // NOTE: allow negative values to handle returns/refunds which can create
+    // negative invoice totals. Ledger aggregates must include negatives so
+    // net payables/receivables are correct.
     debitAmount: {
       type: Number,
-      default: 0,
-      min: [0, 'Debit amount cannot be negative']
+      default: 0
     },
     
     // Credit side (money going out)
     creditAmount: {
       type: Number,
-      default: 0,
-      min: [0, 'Credit amount cannot be negative']
+      default: 0
     },
     
     // Payment details
@@ -83,10 +84,12 @@ const ledgerTransactionSchema = new mongoose.Schema(
       min: [0, 'Cash amount cannot be negative']
     },
     
+    // Remaining credit payment amount (outstanding on this transaction).
+    // Allow negative values here so returns (which may create negative
+    // outstanding balances) are reflected in ledger sums.
     creditPaymentAmount: {
       type: Number,
-      default: 0,
-      min: [0, 'Credit payment amount cannot be negative']
+      default: 0
     },
     
     
@@ -176,9 +179,31 @@ ledgerTransactionSchema.statics.getLedgerSummary = async function(vendorId, star
     {
       $group: {
         _id: null,
+        // Overall totals
         totalDebit: { $sum: '$debitAmount' },
         totalCredit: { $sum: '$creditAmount' },
-        totalCash: { $sum: '$cashAmount' },
+        // Cash split by inflow (sales) and outflow (purchases/expenses)
+        totalCashIn: {
+          $sum: {
+            $cond: [{ $eq: ['$transactionType', 'SALES_INVOICE'] }, '$cashAmount', 0]
+          }
+        },
+        totalCashOut: {
+          $sum: {
+            $cond: [{ $in: ['$transactionType', ['PURCHASE_INVOICE', 'EXPENSE']] }, '$cashAmount', 0]
+          }
+        },
+        // Outstanding amounts split by sales (receivables) and purchases (payables)
+        totalReceivables: {
+          $sum: {
+            $cond: [{ $eq: ['$transactionType', 'SALES_INVOICE'] }, '$creditPaymentAmount', 0]
+          }
+        },
+        totalPayables: {
+          $sum: {
+            $cond: [{ $eq: ['$transactionType', 'PURCHASE_INVOICE'] }, '$creditPaymentAmount', 0]
+          }
+        },
         totalCreditPaymentAmount: { $sum: '$creditPaymentAmount' },
         totalTransactions: { $sum: 1 },
         salesTransactions: {
@@ -206,7 +231,10 @@ ledgerTransactionSchema.statics.getLedgerSummary = async function(vendorId, star
   const result = summary.length > 0 ? summary[0] : {
     totalDebit: 0,
     totalCredit: 0,
-    totalCash: 0,
+    totalCashIn: 0,
+    totalCashOut: 0,
+    totalReceivables: 0,
+    totalPayables: 0,
     totalCreditPaymentAmount: 0,
     totalTransactions: 0,
     salesTransactions: 0,
@@ -219,8 +247,12 @@ ledgerTransactionSchema.statics.getLedgerSummary = async function(vendorId, star
   
   // Calculate net profit/loss
   result.netProfit = result.totalDebit - result.totalCredit;
-  result.totalReceivable = result.totalCreditPaymentAmount;
-  result.totalPayable = 0; // This will be calculated separately for purchases
+  // totalCashReceived historically referred to total cash movements; expose both
+  result.totalCashReceived = result.totalCashIn || 0; // cash from sales (inflow)
+  result.totalCashOut = result.totalCashOut || 0; // cash paid out (purchases + expenses)
+  // Receivables / Payables
+  result.totalReceivable = result.totalReceivables || 0;
+  result.totalPayable = result.totalPayables || 0;
   
   return result;
 };
@@ -273,13 +305,15 @@ ledgerTransactionSchema.statics.createFromSalesInvoice = async function(salesInv
     transactionDate: salesInvoice.date,
     transactionType: 'SALES_INVOICE',
     referenceId: salesInvoice._id,
-    referenceNumber: salesInvoice.deliveryLogNumber,
+    referenceNumber: salesInvoice.salesInvoiceNumber,
     customerId: salesInvoice.customerId,
-    description: `Sales Invoice - ${salesInvoice.deliveryLogNumber}`,
+    description: `Sales Invoice - ${salesInvoice.salesInvoiceNumber}`,
     debitAmount: salesInvoice.grandTotal,
     creditAmount: 0,
-    cashAmount: salesInvoice.cash,
-    creditPaymentAmount: salesInvoice.credit,
+    // Use total cash received on the invoice (initial cash + payments)
+    cashAmount: (salesInvoice.cash || 0) + ((salesInvoice.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)),
+    // Use remaining balance (grandTotal - totalPaid) as outstanding receivable
+    creditPaymentAmount: ((salesInvoice.grandTotal || 0) - ((salesInvoice.cash || 0) + ((salesInvoice.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)))),
     paymentStatus: salesInvoice.paymentStatus
   });
   
@@ -297,8 +331,10 @@ ledgerTransactionSchema.statics.createFromPurchaseEntry = async function(purchas
     description: `Purchase Invoice - ${purchaseEntry.invoiceNumber}`,
     debitAmount: 0,
     creditAmount: purchaseEntry.grandTotal,
-    cashAmount: purchaseEntry.cashPaid,
-    creditPaymentAmount: purchaseEntry.creditAmount,
+    // Use total cash paid on the purchase (initial cashPaid + payments)
+    cashAmount: (purchaseEntry.cashPaid || 0) + ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)),
+    // Use remaining balance (grandTotal - totalPaid) as outstanding payable
+    creditPaymentAmount: ((purchaseEntry.grandTotal || 0) - ((purchaseEntry.cashPaid || 0) + ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)))),
     paymentStatus: purchaseEntry.paymentStatus
   });
   

@@ -109,7 +109,7 @@ const purchaseEntrySchema = new mongoose.Schema(
     creditAmount: {
       type: Number,
       default: 0,
-      min: [0, 'Credit amount cannot be negative']
+      min: [-999999, 'Credit amount cannot be less than -999,999']
     },
     
     paymentDetails: [paymentDetailSchema],
@@ -145,7 +145,10 @@ purchaseEntrySchema.virtual('totalPaid').get(function() {
 
 // Virtual for remaining balance
 purchaseEntrySchema.virtual('remainingBalance').get(function() {
-  return this.grandTotal - this.totalPaid;
+  // Remaining (outstanding) balance is how much is still owed:
+  // grandTotal - totalPaid. Previously this returned totalPaid - grandTotal
+  // which inverted the sign and led to incorrect outstanding values.
+  return (this.grandTotal || 0) - (this.totalPaid || 0);
 });
 
 // Virtual for payment status

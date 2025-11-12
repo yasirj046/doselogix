@@ -75,6 +75,18 @@ const salesProductSchema = new mongoose.Schema(
       min: [0, 'Bonus cannot be negative']
     },
     
+    // Return details (quantity returned against this sales product)
+    returnQuantity: {
+      type: Number,
+      default: 0,
+      min: [0, 'Return quantity cannot be negative']
+    },
+
+    returnDate: {
+      type: Date,
+      required: false
+    },
+
     totalQuantity: {
       type: Number,
       required: [true, 'Total quantity is required'],
@@ -186,21 +198,29 @@ salesProductSchema.pre('save', function(next) {
   if (this.price < this.minSalePrice && !this.lessToMinimumCheck) {
     return next(new Error(`Cannot sell below minimum price of ${this.minSalePrice} without permission`));
   }
-  
-  // Calculate total quantity
-  this.totalQuantity = this.quantity + this.bonus;
-  
-  // Calculate total amount (same as net amount)
-  const grossAmount = this.quantity * this.price;
+
+  // Calculate effective quantity after returns (don't modify stored quantity)
+  const effectiveQuantity = this.quantity - (this.returnQuantity || 0);
+
+  // Ensure return quantity doesn't exceed sold quantity
+  if (this.returnQuantity && this.returnQuantity > this.quantity) {
+    return next(new Error(`Return quantity (${this.returnQuantity}) cannot exceed sold quantity (${this.quantity})`));
+  }
+
+  // Calculate total quantity (effective quantity + bonus)
+  this.totalQuantity = effectiveQuantity + this.bonus;
+
+  // Calculate total amount based on effective quantity (after returns)
+  const grossAmount = effectiveQuantity * this.price;
   const percentageDiscountAmount = (grossAmount * this.percentageDiscount) / 100;
   const totalDiscountAmount = percentageDiscountAmount + this.flatDiscount;
   this.totalAmount = grossAmount - totalDiscountAmount;
-  
+
   // Calculate effective cost per piece
   if (this.totalQuantity > 0) {
     this.effectiveCostPerPiece = this.totalAmount / this.totalQuantity;
   }
-  
+
   next();
 });
 
@@ -222,7 +242,7 @@ salesProductSchema.statics.getSalesByProduct = async function(productId, vendorI
   
   return await this.find(query)
     .populate('productId', 'productName packingSize cartonSize')
-    .populate('salesInvoiceId', 'date deliveryLogNumber')
+    .populate('salesInvoiceId', 'date deliveryLogNumber salesInvoiceNumber')
     .sort({ createdAt: -1 });
 };
 
@@ -240,7 +260,7 @@ salesProductSchema.statics.getSalesByBatch = async function(batchNumber, vendorI
   
   return await this.find(query)
     .populate('productId', 'productName packingSize cartonSize')
-    .populate('salesInvoiceId', 'date deliveryLogNumber customerId')
+    .populate('salesInvoiceId', 'date deliveryLogNumber customerId salesInvoiceNumber')
     .sort({ createdAt: -1 });
 };
 
@@ -255,7 +275,7 @@ salesProductSchema.statics.getExpiringSalesProducts = async function(vendorId, d
     expiry: { $lte: futureDate }
   })
   .populate('productId', 'productName')
-  .populate('salesInvoiceId', 'date customerId deliveryLogNumber')
+  .populate('salesInvoiceId', 'date customerId deliveryLogNumber salesInvoiceNumber')
   .sort({ expiry: 1 });
 };
 
@@ -263,7 +283,7 @@ salesProductSchema.statics.getExpiringSalesProducts = async function(vendorId, d
 salesProductSchema.statics.getBatchSalesHistory = async function(productId, vendorId, batchNumber) {
   return await this.find({ productId, vendorId, batchNumber, isActive: true })
     .populate('productId', 'productName packingSize cartonSize')
-    .populate('salesInvoiceId', 'date deliveryLogNumber customerId');
+    .populate('salesInvoiceId', 'date deliveryLogNumber customerId salesInvoiceNumber');
 };
 
 module.exports = mongoose.model("SalesProduct", salesProductSchema);

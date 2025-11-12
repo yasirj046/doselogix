@@ -319,9 +319,9 @@ exports.getCustomersByVendor = async (vendorId) => {
   }
 };
 
-exports.getEmployeesByVendor = async (vendorId) => {
+exports.getEmployeesByVendor = async (vendorId, query = {}) => {
   try {
-    const employees = await Employee.find({ vendorId, isActive: true })
+    const employees = await Employee.find({ vendorId, isActive: true, ...query })
       .select('_id employeeName designation')
       .sort({ employeeName: 1 });
     

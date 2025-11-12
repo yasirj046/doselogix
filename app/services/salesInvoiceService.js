@@ -37,10 +37,11 @@ exports.getAllSalesInvoices = async (page, limit, keyword, status, vendorId, cus
       query.date = { $lte: new Date(endDate) };
     }
     
-    // Search by keyword in delivery log number or remarks
+    // Search by keyword in delivery log number, sales invoice number or remarks
     if (keyword && keyword !== "") {
       query.$or = [
         { deliveryLogNumber: { $regex: keyword, $options: 'i' } },
+        { salesInvoiceNumber: { $regex: keyword, $options: 'i' } },
         { remarks: { $regex: keyword, $options: 'i' } }
       ];
     }
@@ -191,6 +192,10 @@ exports.getSalesInvoiceById = async (id, vendorId) => {
       minSalePrice: product.minSalePrice,
       inventoryId: product.inventoryId._id,
       currentInventoryStock: product.inventoryId.currentQuantity
+      ,
+      // Return fields
+      returnQuantity: product.returnQuantity || 0,
+      returnDate: product.returnDate || null
     }));
 
     return salesInvoiceWithProducts;
@@ -236,22 +241,22 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
       throw new Error('Booking employee not found or inactive');
     }
 
-    // Auto-generate delivery log number if not provided
-    if (!salesInvoiceData.deliveryLogNumber) {
-      salesInvoiceData.deliveryLogNumber = await SalesInvoice.generateDeliveryLogNumber(
-        salesInvoiceData.vendorId,
-        salesInvoiceData.deliverBy
-      );
-    }
+    // NOTE: deliveryLogNumber will be auto-generated and assigned by the Delivery Log module
+    // after the sales invoice is created. Do not generate it here.
 
-    // Check if delivery log number already exists
-    const existingInvoice = await SalesInvoice.findOne({
-      vendorId: salesInvoiceData.vendorId,
-      deliveryLogNumber: salesInvoiceData.deliveryLogNumber
-    }).session(session);
-
-    if (existingInvoice) {
-      throw new Error('Delivery log number already exists for this vendor');
+    // Validate sales invoice number if provided
+    if (salesInvoiceData.salesInvoiceNumber) {
+      const regex = /^SINV-\d{2}-\d{4}-\d{6}$/;
+      if (!regex.test(salesInvoiceData.salesInvoiceNumber)) {
+        throw new Error('Invalid sales invoice number format. Must be SINV-YY-MMDD-XXXXXX');
+      }
+      // Check uniqueness
+      const existingNumber = await SalesInvoice.findOne({
+        salesInvoiceNumber: salesInvoiceData.salesInvoiceNumber
+      }).session(session);
+      if (existingNumber) {
+        throw new Error('Sales invoice number already exists');
+      }
     }
 
     // Set license information from customer if not provided
@@ -274,11 +279,14 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
 
     for (const productData of products) {
       // Find inventory item using FIFO (First Expiry First Out)
+      // Determine net quantity to deduct (quantity - returnQuantity)
+      const netQtyToDeduct = (productData.quantity || 0) - (productData.returnQuantity || 0);
+
       const inventoryItem = await Inventory.findOne({
         _id: productData.inventoryId,
         vendorId: salesInvoiceData.vendorId,
         productId: productData.productId,
-        currentQuantity: { $gte: productData.quantity },
+        currentQuantity: { $gte: netQtyToDeduct },
         isActive: true
       }).session(session);
 
@@ -291,8 +299,11 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
         throw new Error(`Cannot sell ${productData.productName} below minimum price of ${inventoryItem.minSalePrice}`);
       }
 
-      // Calculate amounts
-      const grossAmount = productData.quantity * productData.price;
+      // Calculate amounts - IMPORTANT: Calculate based on net quantity (quantity - returnQuantity)
+      const returnQuantity = productData.returnQuantity || 0;
+      const netSoldQuantity = productData.quantity - returnQuantity; // Actual quantity sold (after returns)
+      
+      const grossAmount = netSoldQuantity * productData.price;
       const percentageDiscountAmount = (grossAmount * (productData.percentageDiscount || 0)) / 100;
       const totalDiscountAmount = percentageDiscountAmount + (productData.flatDiscount || 0);
       const netAmount = grossAmount - totalDiscountAmount;
@@ -309,15 +320,19 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
         batchNumber: inventoryItem.batchNumber,
         expiry: inventoryItem.expiryDate,
         availableStock: inventoryItem.currentQuantity,
+        // store original sold quantity here; model pre-save will subtract returnQuantity
         quantity: productData.quantity,
+        // return information
+        returnQuantity: productData.returnQuantity || 0,
+        returnDate: productData.returnDate || undefined,
         bonus: productData.bonus || 0,
         totalQuantity: productData.quantity + (productData.bonus || 0),
         lessToMinimumCheck: productData.lessToMinimumCheck || false,
         price: productData.price,
         percentageDiscount: productData.percentageDiscount || 0,
         flatDiscount: productData.flatDiscount || 0,
-        effectiveCostPerPiece: netAmount / (productData.quantity + (productData.bonus || 0)),
-        totalAmount: netAmount,
+        effectiveCostPerPiece: netAmount / Math.max(1, netSoldQuantity + (productData.bonus || 0)),
+        totalAmount: netAmount, // This is the net amount after returns and discounts
         originalSalePrice: inventoryItem.salePrice,
         minSalePrice: inventoryItem.minSalePrice
       };
@@ -325,7 +340,7 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
       processedProducts.push({
         salesProductData,
         inventoryItem,
-        quantityToDeduct: productData.quantity
+        quantityToDeduct: netQtyToDeduct
       });
     }
 
@@ -334,9 +349,23 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
     salesInvoiceData.totalDiscount = salesInvoiceData.totalDiscount || 0;
     salesInvoiceData.grandTotal = calculatedSubtotal - salesInvoiceData.totalDiscount;
 
+    // Ensure date is set (will default to current date if not provided)
+    if (!salesInvoiceData.date) {
+      salesInvoiceData.date = new Date();
+    }
+
+    console.log('Creating sales invoice with data:', {
+      deliveryLogNumber: salesInvoiceData.deliveryLogNumber,
+      salesInvoiceNumber: salesInvoiceData.salesInvoiceNumber,
+      date: salesInvoiceData.date,
+      vendorId: salesInvoiceData.vendorId
+    });
+
     // Create the sales invoice
     const salesInvoice = await SalesInvoice.create([salesInvoiceData], { session });
     const createdSalesInvoice = salesInvoice[0];
+
+    console.log('Sales invoice created with number:', createdSalesInvoice.salesInvoiceNumber);
 
     // Create sales products and update inventory
     const salesProductPromises = processedProducts.map(async ({ salesProductData, inventoryItem, quantityToDeduct }) => {
@@ -362,6 +391,33 @@ exports.createSalesInvoice = async (salesInvoiceData) => {
     const createdSalesProducts = await Promise.all(salesProductPromises);
 
     await session.commitTransaction();
+
+    // Auto-create or update delivery log (after transaction commits)
+    const DeliveryLog = require('../models/deliveryLogModel');
+    try {
+      const deliveryLog = await DeliveryLog.findOrCreateForSalesman(
+        salesInvoiceData.vendorId,
+        salesInvoiceData.deliverBy,
+        salesInvoiceData.date
+      );
+      
+      // Add invoice to delivery log
+      await deliveryLog.addInvoice(createdSalesInvoice._id);
+      
+      // Update sales invoice with delivery log number (outside transaction)
+      await SalesInvoice.findByIdAndUpdate(
+        createdSalesInvoice._id,
+        { deliveryLogNumber: deliveryLog.deliveryLogNumber }
+      );
+      
+      console.log(`✓ Sales invoice ${createdSalesInvoice.salesInvoiceNumber} linked to delivery log ${deliveryLog.deliveryLogNumber}`);
+      
+      // Update result object with delivery log number
+      createdSalesInvoice.deliveryLogNumber = deliveryLog.deliveryLogNumber;
+    } catch (deliveryLogError) {
+      console.error('Error creating/updating delivery log:', deliveryLogError);
+      // Log error but don't fail since invoice is already created
+    }
 
     // Return the created sales invoice with products
     const result = createdSalesInvoice.toObject();
@@ -423,11 +479,13 @@ exports.updateSalesInvoice = async (vendorId, salesInvoiceId, updateData) => {
 
       for (const productData of updateData.products) {
         // Find inventory item
+        const netQtyToDeduct = (productData.quantity || 0) - (productData.returnQuantity || 0);
+
         const inventoryItem = await Inventory.findOne({
           _id: productData.inventoryId,
           vendorId: vendorId,
           productId: productData.productId,
-          currentQuantity: { $gte: productData.quantity },
+          currentQuantity: { $gte: netQtyToDeduct },
           isActive: true
         }).session(session);
 
@@ -440,8 +498,11 @@ exports.updateSalesInvoice = async (vendorId, salesInvoiceId, updateData) => {
           throw new Error(`Cannot sell ${productData.productName} below minimum price of ${inventoryItem.minSalePrice}`);
         }
 
-        // Calculate amounts
-        const grossAmount = productData.quantity * productData.price;
+        // Calculate amounts - IMPORTANT: Calculate based on net quantity (quantity - returnQuantity)
+        const returnQuantity = productData.returnQuantity || 0;
+        const netSoldQuantity = productData.quantity - returnQuantity; // Actual quantity sold (after returns)
+        
+        const grossAmount = netSoldQuantity * productData.price;
         const percentageDiscountAmount = (grossAmount * (productData.percentageDiscount || 0)) / 100;
         const totalDiscountAmount = percentageDiscountAmount + (productData.flatDiscount || 0);
         const netAmount = grossAmount - totalDiscountAmount;
@@ -459,15 +520,19 @@ exports.updateSalesInvoice = async (vendorId, salesInvoiceId, updateData) => {
           batchNumber: inventoryItem.batchNumber,
           expiry: inventoryItem.expiryDate,
           availableStock: inventoryItem.currentQuantity,
+          // store original quantity; model pre-save will subtract returnQuantity
           quantity: productData.quantity,
+          // return info
+          returnQuantity: productData.returnQuantity || 0,
+          returnDate: productData.returnDate || undefined,
           bonus: productData.bonus || 0,
           totalQuantity: productData.quantity + (productData.bonus || 0),
           lessToMinimumCheck: productData.lessToMinimumCheck || false,
           price: productData.price,
           percentageDiscount: productData.percentageDiscount || 0,
           flatDiscount: productData.flatDiscount || 0,
-          effectiveCostPerPiece: netAmount / (productData.quantity + (productData.bonus || 0)),
-          totalAmount: netAmount,
+          effectiveCostPerPiece: netAmount / Math.max(1, netSoldQuantity + (productData.bonus || 0)),
+          totalAmount: netAmount, // This is the net amount after returns and discounts
           originalSalePrice: inventoryItem.salePrice,
           minSalePrice: inventoryItem.minSalePrice
         };
@@ -475,7 +540,7 @@ exports.updateSalesInvoice = async (vendorId, salesInvoiceId, updateData) => {
         processedProducts.push({
           salesProductData,
           inventoryItem,
-          quantityToDeduct: productData.quantity
+          quantityToDeduct: netQtyToDeduct
         });
       }
 
@@ -503,11 +568,51 @@ exports.updateSalesInvoice = async (vendorId, salesInvoiceId, updateData) => {
 
     // Update the sales invoice (excluding products from update data)
     const { products, ...salesInvoiceUpdate } = updateData;
+    
+    // Check if deliverBy (salesman) changed
+    const oldDeliverBy = existingSalesInvoice.deliverBy.toString();
+    const newDeliverBy = salesInvoiceUpdate.deliverBy || oldDeliverBy;
+    const deliverByChanged = oldDeliverBy !== newDeliverBy.toString();
+    
     const updatedSalesInvoice = await SalesInvoice.findByIdAndUpdate(
       salesInvoiceId,
       salesInvoiceUpdate,
       { new: true, session }
     );
+
+    // Handle delivery log changes if salesman changed
+    if (deliverByChanged) {
+      const DeliveryLog = require('../models/deliveryLogModel');
+      try {
+        // Remove from old delivery log
+        const oldDeliveryLog = await DeliveryLog.findOne({
+          vendorId: vendorId,
+          invoices: salesInvoiceId
+        });
+        
+        if (oldDeliveryLog) {
+          await oldDeliveryLog.removeInvoice(salesInvoiceId);
+          console.log(`✓ Removed invoice from old delivery log ${oldDeliveryLog.deliveryLogNumber}`);
+        }
+        
+        // Add to new delivery log
+        const newDeliveryLog = await DeliveryLog.findOrCreateForSalesman(
+          vendorId,
+          newDeliverBy,
+          updatedSalesInvoice.date
+        );
+        
+        await newDeliveryLog.addInvoice(salesInvoiceId);
+        
+        // Update invoice with new delivery log number
+        updatedSalesInvoice.deliveryLogNumber = newDeliveryLog.deliveryLogNumber;
+        await updatedSalesInvoice.save({ session });
+        
+        console.log(`✓ Invoice moved to new delivery log ${newDeliveryLog.deliveryLogNumber}`);
+      } catch (deliveryLogError) {
+        console.error('Error updating delivery log:', deliveryLogError);
+      }
+    }
 
     await session.commitTransaction();
     return updatedSalesInvoice;
@@ -557,6 +662,22 @@ exports.deleteSalesInvoice = async (vendorId, salesInvoiceId) => {
       salesInvoiceId: salesInvoiceId,
       vendorId: vendorId
     }, { session });
+
+    // Remove from delivery log
+    const DeliveryLog = require('../models/deliveryLogModel');
+    try {
+      const deliveryLog = await DeliveryLog.findOne({
+        vendorId: vendorId,
+        invoices: salesInvoiceId
+      });
+      
+      if (deliveryLog) {
+        await deliveryLog.removeInvoice(salesInvoiceId);
+        console.log(`✓ Removed invoice from delivery log ${deliveryLog.deliveryLogNumber}`);
+      }
+    } catch (deliveryLogError) {
+      console.error('Error removing invoice from delivery log:', deliveryLogError);
+    }
 
     // Delete sales invoice
     await SalesInvoice.findByIdAndDelete(salesInvoiceId, { session });

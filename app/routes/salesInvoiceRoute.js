@@ -28,6 +28,9 @@ router.get('/inventory/:productId', multiTenancy, salesInvoiceController.getAvai
 // Get last three prices for customer-product combination
 router.get('/price-history', multiTenancy, salesInvoiceController.getLastThreePricesForCustomer);
 
+// Get next sales invoice number (preview only, not saved)
+router.get('/next-invoice-number', multiTenancy, salesInvoiceController.getNextSalesInvoiceNumber);
+
 // Get sales invoices by customer
 router.get('/customer/:customerId', multiTenancy, salesInvoiceController.getSalesInvoicesByCustomer);
 

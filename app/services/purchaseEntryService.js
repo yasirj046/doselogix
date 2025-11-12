@@ -130,7 +130,9 @@ exports.getPurchaseEntryById = async (id, vendorId) => {
       invoicePrice: product.invoicePrice,
       quantity: product.quantity,
       totalAmount: product.totalAmount,
-      effectiveCostPerPiece: product.effectiveCostPerPiece
+      effectiveCostPerPiece: product.effectiveCostPerPiece,
+      returnQuantity: product.returnQuantity || 0,
+      returnDate: product.returnDate || null
     }));
 
     return purchaseEntryWithProducts;
@@ -242,14 +244,14 @@ exports.updatePurchaseEntry = async (vendorId, purchaseEntryId, updateData) => {
         }).session(session);
 
         if (inventory) {
-          // Decrease inventory quantities
-          inventory.cartons = Math.max(0, inventory.cartons - existingProduct.cartons);
-          inventory.pieces = Math.max(0, inventory.pieces - existingProduct.pieces);
-          inventory.bonus = Math.max(0, inventory.bonus - existingProduct.bonus);
-          inventory.quantity = Math.max(0, inventory.quantity - existingProduct.quantity);
+          // Calculate effective quantity that was added (considering any previous returns)
+          const effectiveQuantity = existingProduct.quantity - (existingProduct.returnQuantity || 0);
+          
+          // Decrease inventory quantities by the effective amount
+          inventory.currentQuantity = Math.max(0, inventory.currentQuantity - effectiveQuantity - existingProduct.bonus);
           
           // If quantity becomes 0, mark as inactive
-          if (inventory.quantity === 0) {
+          if (inventory.currentQuantity === 0) {
             inventory.isActive = false;
           }
           
@@ -305,8 +307,11 @@ exports.deletePurchaseEntry = async (vendorId, purchaseEntryId) => {
       }).session(session);
 
       if (inventory) {
-        // Decrease inventory quantity
-        inventory.currentQuantity -= (purchaseProduct.quantity + purchaseProduct.bonus);
+        // Calculate effective quantity that was added (considering returns)
+        const effectiveQuantity = purchaseProduct.quantity - (purchaseProduct.returnQuantity || 0);
+        
+        // Decrease inventory quantity by effective amount
+        inventory.currentQuantity -= (effectiveQuantity + purchaseProduct.bonus);
         
         // Ensure quantity doesn't go negative
         if (inventory.currentQuantity < 0) {
@@ -506,13 +511,16 @@ exports.updateInventoryForPurchase = async (purchaseProduct, session = null) => 
       throw new Error('Purchase entry not found');
     }
 
+    // Calculate effective quantity after returns
+    const effectiveQuantity = purchaseProduct.quantity - (purchaseProduct.returnQuantity || 0);
+    
     const inventoryData = {
       vendorId: purchaseProduct.vendorId,
       productId: purchaseProduct.productId,
       brandId: purchaseEntry.brandId, // Include brandId from purchase entry
       batchNumber: purchaseProduct.batchNumber,
       expiryDate: purchaseProduct.expiryDate,
-      currentQuantity: purchaseProduct.quantity + purchaseProduct.bonus,
+      currentQuantity: effectiveQuantity + purchaseProduct.bonus,
       lastPurchasePrice: purchaseProduct.effectiveCostPerPiece,
       averageCost: purchaseProduct.effectiveCostPerPiece,
       salePrice: purchaseProduct.salePrice,

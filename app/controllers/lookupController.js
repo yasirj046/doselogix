@@ -180,7 +180,14 @@ exports.getCustomersByVendor = async (req, res) => {
 exports.getEmployeesByVendor = async (req, res) => {
   try {
     const vendorId = req.vendor.id;
-    const employees = await lookupService.getEmployeesByVendor(vendorId);
+    const { designation } = req.query;
+    
+    const query = { vendorId, isActive: true };
+    if (designation) {
+      query.designation = designation;
+    }
+    
+    const employees = await lookupService.getEmployeesByVendor(vendorId, query);
     res.status(200).json(util.createResponse(employees, null, "Vendor Employees"));
   } catch (error) {
     res.status(200).json(util.createResponse([], error));

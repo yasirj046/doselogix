@@ -68,6 +68,17 @@ const purchaseProductSchema = new mongoose.Schema(
       min: [0, 'Bonus cannot be negative']
     },
     
+    // Return details
+    returnQuantity: {
+      type: Number,
+      default: 0,
+      min: [0, 'Return quantity cannot be negative']
+    },
+    
+    returnDate: {
+      type: Date
+    },
+    
     // Pricing details
     netPrice: {
       type: Number,
@@ -159,6 +170,16 @@ purchaseProductSchema.virtual('availableQuantity').get(function() {
   return this.quantity + this.bonus;
 });
 
+// Virtual for effective quantity after returns
+purchaseProductSchema.virtual('effectiveQuantity').get(function() {
+  return this.quantity - this.returnQuantity;
+});
+
+// Virtual for effective available quantity (after returns + bonus)
+purchaseProductSchema.virtual('effectiveAvailableQuantity').get(function() {
+  return (this.quantity - this.returnQuantity) + this.bonus;
+});
+
 // Virtual for gross amount (quantity * netPrice)
 purchaseProductSchema.virtual('grossAmount').get(function() {
   return this.quantity * this.netPrice;
@@ -191,8 +212,16 @@ purchaseProductSchema.pre('save', async function(next) {
     // Calculate total quantity: (cartons * cartonSize) + pieces
     this.quantity = (this.cartons * product.cartonSize) + this.pieces;
     
-    // Calculate gross amount
-    const grossAmount = this.quantity * this.netPrice;
+    // Effective quantity after returns
+    const effectiveQuantity = this.quantity - this.returnQuantity;
+    
+    // Ensure return quantity doesn't exceed purchased quantity
+    if (this.returnQuantity > this.quantity) {
+      throw new Error('Return quantity cannot exceed purchased quantity');
+    }
+    
+    // Calculate gross amount based on effective quantity (after returns)
+    const grossAmount = effectiveQuantity * this.netPrice;
     
     // Calculate discount amount
     let discountAmount = 0;
@@ -205,8 +234,9 @@ purchaseProductSchema.pre('save', async function(next) {
     // Calculate total amount
     this.totalAmount = grossAmount - discountAmount;
     
-    // Calculate effective cost per piece
-    this.effectiveCostPerPiece = this.totalAmount / (this.quantity + this.bonus);
+    // Calculate effective cost per piece (including bonus, excluding returns)
+    const totalAvailablePieces = effectiveQuantity + this.bonus;
+    this.effectiveCostPerPiece = totalAvailablePieces > 0 ? this.totalAmount / totalAvailablePieces : 0;
     
     next();
   } catch (error) {

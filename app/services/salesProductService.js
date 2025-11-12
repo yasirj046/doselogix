@@ -181,66 +181,75 @@ exports.updateSalesProduct = async (vendorId, salesProductId, updateData) => {
       throw new Error('Sales product not found');
     }
 
-    // Reverse the old inventory change
-    await Inventory.findByIdAndUpdate(
-      existingSalesProduct.inventoryId,
-      {
-        $inc: { currentQuantity: existingSalesProduct.quantity },
-        lastUpdated: new Date()
-      },
-      { session }
-    );
+    // Compute inventory delta considering returnQuantity changes.
+    const existingReturn = existingSalesProduct.returnQuantity || 0;
+    const newReturn = (updateData.returnQuantity !== undefined) ? updateData.returnQuantity : existingReturn;
 
-    // If quantity is being updated, validate new inventory requirements
+    // Determine new stored (net) quantity
+    let newStoredQuantity = existingSalesProduct.quantity;
     if (updateData.quantity !== undefined) {
-      const inventoryItem = await Inventory.findById(existingSalesProduct.inventoryId).session(session);
-      
-      if (!inventoryItem) {
-        throw new Error('Inventory item not found');
-      }
+      // If caller provided a new original quantity, compute net = original - return
+      newStoredQuantity = (updateData.quantity || 0) - newReturn;
+    } else if (updateData.returnQuantity !== undefined) {
+      // Only return changed: subtract delta of return from existing stored net quantity
+      const deltaReturn = updateData.returnQuantity - existingReturn;
+      newStoredQuantity = existingSalesProduct.quantity - deltaReturn;
+    }
 
-      // Check if new quantity is available (including the returned quantity)
-      const availableQuantity = inventoryItem.currentQuantity + existingSalesProduct.quantity;
-      if (updateData.quantity > availableQuantity) {
-        throw new Error(`Insufficient inventory. Available: ${availableQuantity}, Required: ${updateData.quantity}`);
-      }
+    // Ensure non-negative
+    if (newStoredQuantity < 0) {
+      throw new Error('Computed net quantity cannot be negative');
+    }
 
-      // Validate pricing if price is being updated
-      if (updateData.price !== undefined && !updateData.lessToMinimumCheck && updateData.price < inventoryItem.minSalePrice) {
-        throw new Error(`Cannot sell below minimum price of ${inventoryItem.minSalePrice}`);
-      }
+    const delta = newStoredQuantity - existingSalesProduct.quantity; // positive => more net sold (deduct), negative => more returned (add)
 
-      // Apply the new inventory change
+    // Validate inventory if we need to deduct more
+    const inventoryItem = await Inventory.findById(existingSalesProduct.inventoryId).session(session);
+    if (!inventoryItem) {
+      throw new Error('Inventory item not found');
+    }
+
+    if (delta > 0) {
+      // Need to deduct additional stock
+      if (inventoryItem.currentQuantity < delta) {
+        throw new Error(`Insufficient inventory. Available: ${inventoryItem.currentQuantity}, Required additional: ${delta}`);
+      }
+    }
+
+    // Apply the inventory change in one operation: decrease by delta (if delta positive), increase if delta negative
+    if (delta !== 0) {
       await Inventory.findByIdAndUpdate(
         existingSalesProduct.inventoryId,
         {
-          $inc: { currentQuantity: -updateData.quantity },
-          lastUpdated: new Date()
-        },
-        { session }
-      );
-    } else {
-      // If quantity not updated, apply the same quantity back
-      await Inventory.findByIdAndUpdate(
-        existingSalesProduct.inventoryId,
-        {
-          $inc: { currentQuantity: -existingSalesProduct.quantity },
+          $inc: { currentQuantity: -delta },
           lastUpdated: new Date()
         },
         { session }
       );
     }
 
-    // Update the sales product
+    // Prepare payload to store net quantity and updated returnQuantity
+    const updatePayload = Object.assign({}, updateData, {
+      quantity: newStoredQuantity,
+      returnQuantity: newReturn
+    });
+
+    // Validate pricing if price is being updated
+    if (updatePayload.price !== undefined && !updatePayload.lessToMinimumCheck && updatePayload.price < inventoryItem.minSalePrice) {
+      throw new Error(`Cannot sell below minimum price of ${inventoryItem.minSalePrice}`);
+    }
+
+    // Update the sales product document with computed net quantity
     const updatedSalesProduct = await SalesProduct.findByIdAndUpdate(
       salesProductId,
-      updateData,
+      updatePayload,
       { new: true, session }
     );
 
-    // Update the parent sales invoice totals if financial data changed
-    if (updateData.quantity !== undefined || updateData.price !== undefined || 
-        updateData.percentageDiscount !== undefined || updateData.flatDiscount !== undefined) {
+  // Update the parent sales invoice totals if financial data or return changed
+  if (updateData.quantity !== undefined || updateData.price !== undefined || 
+    updateData.percentageDiscount !== undefined || updateData.flatDiscount !== undefined ||
+    updateData.returnQuantity !== undefined) {
       
       // Recalculate sales invoice totals
       const allSalesProducts = await SalesProduct.find({ 
@@ -253,10 +262,15 @@ exports.updateSalesProduct = async (vendorId, salesProductId, updateData) => {
 
       allSalesProducts.forEach(sp => {
         if (sp._id.toString() === salesProductId) {
-          // Use updated values
-          const grossAmount = (updateData.quantity || sp.quantity) * (updateData.price || sp.price);
-          const percentageDiscountAmount = (grossAmount * ((updateData.percentageDiscount !== undefined ? updateData.percentageDiscount : sp.percentageDiscount) || 0)) / 100;
-          const totalDiscountAmount = percentageDiscountAmount + ((updateData.flatDiscount !== undefined ? updateData.flatDiscount : sp.flatDiscount) || 0);
+          // Use updated stored net quantity and updated pricing/discounts if provided
+          const updatedQtyForCalc = newStoredQuantity;
+          const priceForCalc = (updateData.price !== undefined) ? updateData.price : sp.price;
+          const pctForCalc = (updateData.percentageDiscount !== undefined) ? updateData.percentageDiscount : sp.percentageDiscount;
+          const flatForCalc = (updateData.flatDiscount !== undefined) ? updateData.flatDiscount : sp.flatDiscount;
+
+          const grossAmount = updatedQtyForCalc * priceForCalc;
+          const percentageDiscountAmount = (grossAmount * (pctForCalc || 0)) / 100;
+          const totalDiscountAmount = percentageDiscountAmount + (flatForCalc || 0);
           const netAmount = grossAmount - totalDiscountAmount;
           newSubtotal += netAmount;
           newTotalDiscount += totalDiscountAmount;

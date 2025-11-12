@@ -256,3 +256,7 @@ public/uploads/
 config/production.js
 config/development.js
 >>>>>>> master
+
+# Ignore project scripts and documentation folders
+/scripts/
+/documentations/

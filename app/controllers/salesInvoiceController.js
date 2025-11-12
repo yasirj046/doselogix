@@ -84,6 +84,7 @@ exports.createSalesInvoice = async (req, res) => {
     if (salesInvoiceData.licenseNumber) salesInvoiceData.licenseNumber = salesInvoiceData.licenseNumber.trim();
     if (salesInvoiceData.deliveryLogNumber) salesInvoiceData.deliveryLogNumber = salesInvoiceData.deliveryLogNumber.trim();
     if (salesInvoiceData.remarks) salesInvoiceData.remarks = salesInvoiceData.remarks.trim();
+    if (salesInvoiceData.salesInvoiceNumber) salesInvoiceData.salesInvoiceNumber = salesInvoiceData.salesInvoiceNumber.trim();
 
     const createdSalesInvoice = await salesInvoiceService.createSalesInvoice(salesInvoiceData);
     
@@ -131,6 +132,7 @@ exports.updateSalesInvoice = async (req, res) => {
     if (updateData.licenseNumber) updateData.licenseNumber = updateData.licenseNumber.trim();
     if (updateData.deliveryLogNumber) updateData.deliveryLogNumber = updateData.deliveryLogNumber.trim();
     if (updateData.remarks) updateData.remarks = updateData.remarks.trim();
+    if (updateData.salesInvoiceNumber) updateData.salesInvoiceNumber = updateData.salesInvoiceNumber.trim();
 
     const updatedSalesInvoice = await salesInvoiceService.updateSalesInvoice(vendorId, salesInvoiceId, updateData);
     
@@ -247,7 +249,8 @@ exports.addPaymentToCredit = async (req, res) => {
     const salesInvoiceId = req.params.id;
     const paymentData = req.body;
 
-    if (!paymentData.amountPaid || paymentData.amountPaid <= 0) {
+    // Allow negative payment amounts as well (returns/refunds). Validate presence and numeric value.
+    if (paymentData.amountPaid === undefined || paymentData.amountPaid === null || isNaN(Number(paymentData.amountPaid))) {
       return res.status(400).json(createResponse(null, "Valid payment amount is required"));
     }
 
@@ -406,6 +409,27 @@ exports.getLastThreePricesForCustomer = async (req, res) => {
     );
   } catch (error) {
     console.error('Error in getLastThreePricesForCustomer:', error);
+    res.status(400).json(createResponse(null, error.message));
+  }
+};
+
+// Get next sales invoice number (preview only, not saved)
+exports.getNextSalesInvoiceNumber = async (req, res) => {
+  try {
+    const date = req.query.date ? new Date(req.query.date) : new Date();
+    
+    // Generate the next invoice number without saving
+    const nextInvoiceNumber = await SalesInvoice.generateSalesInvoiceNumber(date);
+    
+    res.status(200).json(
+      createResponse(
+        { salesInvoiceNumber: nextInvoiceNumber, date: date }, 
+        null, 
+        "Next sales invoice number retrieved successfully"
+      )
+    );
+  } catch (error) {
+    console.error('Error in getNextSalesInvoiceNumber:', error);
     res.status(400).json(createResponse(null, error.message));
   }
 };

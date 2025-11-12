@@ -217,96 +217,48 @@ class LedgerService {
       const totalPurchases = summary.totalCredit || 0; // Total money going out (purchases + expenses)
       const totalCashReceived = summary.totalCash || 0; // Total cash received
       
-      // Calculate receivables (credit on sales - what customers owe you)
-      const salesReceivables = await LedgerTransaction.aggregate([
-        {
-          $match: {
-            vendorId: vendorObjectId,
-            transactionDate: { $gte: startDate, $lte: endDate },
-            transactionType: 'SALES_INVOICE',
-            isActive: true
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalReceivables: { $sum: '$creditPaymentAmount' }
-          }
-        }
-      ]);
-      
-      // Calculate payables (credit on purchases - what you owe suppliers)
-      const purchasePayables = await LedgerTransaction.aggregate([
-        {
-          $match: {
-            vendorId: vendorObjectId,
-            transactionDate: { $gte: startDate, $lte: endDate },
-            transactionType: 'PURCHASE_INVOICE',
-            isActive: true
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalPayables: { $sum: '$creditPaymentAmount' }
-          }
-        }
-      ]);
-      
-      // Calculate expenses separately
-      const expenses = await LedgerTransaction.aggregate([
-        {
-          $match: {
-            vendorId: vendorObjectId,
-            transactionDate: { $gte: startDate, $lte: endDate },
-            transactionType: 'EXPENSE',
-            isActive: true
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalExpenses: { $sum: '$creditAmount' }
-          }
-        }
-      ]);
-      
-      // Calculate net profit/loss
+      // Use aggregated fields returned by LedgerTransaction.getLedgerSummary
+      // which already computes cash-in/cash-out and receivable/payable splits
       const netProfit = summary.totalDebit - summary.totalCredit;
-      
-      // Enhanced summary with proper calculations
+
       const enhancedSummary = {
         // Basic totals
         totalSales: totalSales,
         totalPurchases: totalPurchases,
-        totalExpenses: expenses.length > 0 ? expenses[0].totalExpenses : 0,
-        totalCashReceived: totalCashReceived,
-        
+        // expenses can be derived as part of totalCredit for EXPENSE type but
+        // keep a separate field if needed (fallback to 0)
+        totalExpenses: summary.totalExpenses || 0,
+        // Cash metrics
+        totalCashReceived: summary.totalCashReceived || 0, // cash from sales (inflow)
+        totalCashOut: summary.totalCashOut || 0, // cash paid out (purchases + expenses)
+
         // Credit tracking
-        totalReceivables: salesReceivables.length > 0 ? salesReceivables[0].totalReceivables : 0,
-        totalPayables: purchasePayables.length > 0 ? purchasePayables[0].totalPayables : 0,
-        
+        totalReceivables: summary.totalReceivable || 0,
+        totalPayables: summary.totalPayable || 0,
+
         // Profit/Loss calculation
         netProfit: netProfit,
         netLoss: netProfit < 0 ? Math.abs(netProfit) : 0,
-        
+
         // Transaction counts
         totalTransactions: summary.totalTransactions || 0,
         salesTransactions: summary.salesTransactions || 0,
         purchaseTransactions: summary.purchaseTransactions || 0,
         expenseTransactions: summary.expenseTransactions || 0,
-        
+
         // Payment status counts
         paidTransactions: summary.paidTransactions || 0,
         partialTransactions: summary.partialTransactions || 0,
         unpaidTransactions: summary.unpaidTransactions || 0,
-        
+
         // Additional metrics
         totalDebit: summary.totalDebit || 0,
         totalCredit: summary.totalCredit || 0,
-        totalCash: summary.totalCash || 0,
+        // Preserve raw aggregated fields for debugging/consumption
+        totalCashIn: summary.totalCashIn || 0,
+        totalCashOutRaw: summary.totalCashOut || 0,
         totalCreditPaymentAmount: summary.totalCreditPaymentAmount || 0,
-        
+
         // Date range
         dateRange: {
           startDate: startDate,
@@ -645,6 +597,12 @@ class LedgerService {
       let totalCashAmount = 0;
 
       if (transactionType === 'SALES_INVOICE') {
+        // Update reference number if changed
+        if (ledgerTransaction.referenceNumber !== originalTransaction.salesInvoiceNumber) {
+          ledgerTransaction.referenceNumber = originalTransaction.salesInvoiceNumber;
+          ledgerTransaction.description = `Sales Invoice - ${originalTransaction.salesInvoiceNumber}`;
+        }
+
         totalPaid = originalTransaction.cash + (originalTransaction.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
         totalCashAmount = totalPaid; // Total cash amount should be the sum of initial cash + all payments
         remainingBalance = originalTransaction.grandTotal - totalPaid;
