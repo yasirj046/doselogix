@@ -331,10 +331,10 @@ ledgerTransactionSchema.statics.createFromPurchaseEntry = async function(purchas
     description: `Purchase Invoice - ${purchaseEntry.invoiceNumber}`,
     debitAmount: 0,
     creditAmount: purchaseEntry.grandTotal,
-    // Use total cash paid on the purchase (initial cashPaid + payments)
-    cashAmount: (purchaseEntry.cashPaid || 0) + ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)),
+    // Use total cash paid on the purchase (all payments)
+    cashAmount: ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)),
     // Use remaining balance (grandTotal - totalPaid) as outstanding payable
-    creditPaymentAmount: ((purchaseEntry.grandTotal || 0) - ((purchaseEntry.cashPaid || 0) + ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0)))),
+    creditPaymentAmount: ((purchaseEntry.grandTotal || 0) - ((purchaseEntry.paymentDetails || []).reduce((s, p) => s + (p.amountPaid || 0), 0))),
     paymentStatus: purchaseEntry.paymentStatus
   });
   

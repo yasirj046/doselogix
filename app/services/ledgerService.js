@@ -68,7 +68,7 @@ class LedgerService {
   static async createTransactionFromPurchaseEntry(purchaseEntry) {
     try {
       // Calculate payment status and remaining balance
-      const totalPaid = purchaseEntry.cashPaid + (purchaseEntry.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
+      const totalPaid = (purchaseEntry.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
       const remainingBalance = purchaseEntry.grandTotal - totalPaid;
       
       let paymentStatus = 'UNPAID';
@@ -618,8 +618,8 @@ class LedgerService {
         ledgerTransaction.debitAmount = originalTransaction.grandTotal;
         ledgerTransaction.cashAmount = totalCashAmount; // Use total cash amount instead of just initial cash
       } else if (transactionType === 'PURCHASE_INVOICE') {
-        totalPaid = originalTransaction.cashPaid + (originalTransaction.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
-        totalCashAmount = totalPaid; // Total cash amount should be the sum of initial cash + all payments
+        totalPaid = (originalTransaction.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
+        totalCashAmount = totalPaid; // Total cash amount should be the sum of all payments
         remainingBalance = originalTransaction.grandTotal - totalPaid;
         
         if (totalPaid >= originalTransaction.grandTotal) {
@@ -697,8 +697,8 @@ class LedgerService {
           paymentStatus = 'PARTIAL';
         }
       } else if (transactionType === 'PURCHASE_INVOICE') {
-        totalPaid = originalTransaction.cashPaid + (originalTransaction.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
-        totalCashAmount = totalPaid; // Total cash amount should be the sum of initial cash + all payments
+        totalPaid = (originalTransaction.paymentDetails?.reduce((sum, payment) => sum + payment.amountPaid, 0) || 0);
+        totalCashAmount = totalPaid; // Total cash amount should be the sum of all payments
         remainingBalance = originalTransaction.grandTotal - totalPaid;
         
         if (totalPaid >= originalTransaction.grandTotal) {

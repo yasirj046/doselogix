@@ -40,31 +40,28 @@ exports.getAllPurchaseEntries = async (page, limit, keyword, status, vendorId, b
     if (paymentStatus && paymentStatus !== "") {
       switch (paymentStatus.toLowerCase()) {
         case 'paid':
-          // Total paid (cash + credit payments) is greater than or equal to grand total
+          // Total paid (credit payments) is greater than or equal to grand total
           // OR remaining credit is zero or less
           query.$expr = {
             $or: [
-              { $gte: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, { $ifNull: ["$grandTotal", 0] }] },
+              { $gte: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, { $ifNull: ["$grandTotal", 0] }] },
               { $lte: [{ $subtract: [{ $ifNull: ["$creditAmount", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] }
             ]
           };
           break;
         case 'unpaid':
-          // No cash paid and no credit payments made
+          // No credit payments made
           query.$expr = {
-            $and: [
-              { $lte: [{ $ifNull: ["$cashPaid", 0] }, 0] },
-              { $lte: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, 0] }
-            ]
+            $lte: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, 0]
           };
           break;
         case 'partial':
-          // Some payment made (cash or credit payments) but not fully paid
+          // Some credit payments made but not fully paid
           // AND remaining credit is greater than zero
           query.$expr = {
             $and: [
-              { $gt: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] },
-              { $lt: [{ $add: [{ $ifNull: ["$cashPaid", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, { $ifNull: ["$grandTotal", 0] }] },
+              { $gt: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, 0] },
+              { $lt: [{ $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }, { $ifNull: ["$grandTotal", 0] }] },
               { $gt: [{ $subtract: [{ $ifNull: ["$creditAmount", 0] }, { $sum: { $map: { input: { $ifNull: ["$paymentDetails", []] }, as: "payment", in: { $ifNull: ["$$payment.amountPaid", 0] } } } }] }, 0] }
             ]
           };

@@ -100,12 +100,6 @@ const purchaseEntrySchema = new mongoose.Schema(
     },
     
     // Payment details
-    cashPaid: {
-      type: Number,
-      default: 0,
-      min: [0, 'Cash paid cannot be negative']
-    },
-    
     creditAmount: {
       type: Number,
       default: 0,
@@ -140,7 +134,7 @@ purchaseEntrySchema.index({ vendorId: 1, isActive: 1 });
 // Virtual for total paid amount
 purchaseEntrySchema.virtual('totalPaid').get(function() {
   const paymentTotal = this.paymentDetails.reduce((sum, payment) => sum + payment.amountPaid, 0);
-  return this.cashPaid + paymentTotal;
+  return paymentTotal;
 });
 
 // Virtual for remaining balance
@@ -153,10 +147,9 @@ purchaseEntrySchema.virtual('remainingBalance').get(function() {
 
 // Virtual for payment status
 purchaseEntrySchema.virtual('paymentStatus').get(function() {
-  const cashPaid = this.cashPaid || 0;
   const creditAmount = this.creditAmount || 0;
   const creditPayments = this.paymentDetails.reduce((sum, payment) => sum + (payment.amountPaid || 0), 0);
-  const totalPaid = cashPaid + creditPayments;
+  const totalPaid = creditPayments;
   const remainingCredit = creditAmount - creditPayments;
   
   if (totalPaid >= this.grandTotal || remainingCredit <= 0) return 'Paid';
@@ -237,7 +230,7 @@ purchaseEntrySchema.statics.getPurchaseStats = async function(vendorId, options 
         totalEntries: { $sum: 1 },
         totalGrossAmount: { $sum: '$grossTotal' },
         totalGrandAmount: { $sum: '$grandTotal' },
-        totalPaid: { $sum: { $add: ['$cashPaid', { $sum: '$paymentDetails.amountPaid' }] } },
+        totalPaid: { $sum: { $sum: '$paymentDetails.amountPaid' } },
         totalFreight: { $sum: '$freight' },
         totalDiscounts: { $sum: { $add: ['$flatDiscount', '$specialDiscount'] } }
       }
