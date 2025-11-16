@@ -21,6 +21,9 @@ const inventoryRoutes = require('./app/routes/inventoryRoute');
 const expenseRoutes = require('./app/routes/expenseRoute');
 const ledgerRoutes = require('./app/routes/ledgerRoute');
 const deliveryLogRoutes = require('./app/routes/deliveryLogRoute');
+const customerReportRoutes = require('./app/routes/customerReportRoute');
+const brandReportRoutes = require('./app/routes/brandReportRoute');
+const productReportRoutes = require('./app/routes/productReportRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 const ledgerCronJob = require('./app/util/ledgerCronJob');
@@ -72,6 +75,9 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/delivery-logs', deliveryLogRoutes);
+app.use('/api/reports/customers', customerReportRoutes);
+app.use('/api/reports/brands', brandReportRoutes);
+app.use('/api/reports/products', productReportRoutes);
 
 mongoose
   .connect(

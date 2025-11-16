@@ -10,6 +10,7 @@ const SubGroup = require("../models/subGroupModel");
 const Product = require("../models/productModel");
 const UserCustomers = require("../models/userCustomersModel");
 const Employee = require("../models/employeeModel");
+const SalesInvoice = require("../models/salesInvoiceModel");
 
 exports.getAllProvinces = async () => {
   try {
@@ -342,6 +343,81 @@ exports.getExpenseCategories = async () => {
     return EXPENSE_CATEGORIES;
   } catch (error) {
     console.error('Error in getExpenseCategories:', error);
+    throw error;
+  }
+};
+
+exports.getAreasByCustomersWithSales = async (vendorId) => {
+  try {
+    // Get distinct customer IDs that have sales invoices
+    const customersWithSales = await SalesInvoice.distinct('customerId', { vendorId, isActive: true });
+    
+    // Get distinct areas from customers who have sales
+    const areas = await UserCustomers.distinct('customerArea', {
+      vendorId,
+      isActive: true,
+      _id: { $in: customersWithSales }
+    });
+    
+    // Populate area details
+    const populatedAreas = await Area.find({
+      vendorId,
+      isActive: true,
+      _id: { $in: areas }
+    })
+      .select('_id area')
+      .sort({ area: 1 });
+    
+    return populatedAreas.map(area => ({
+      label: area.area,
+      value: area._id.toString()
+    }));
+  } catch (error) {
+    console.error('Error in getAreasByCustomersWithSales:', error);
+    throw error;
+  }
+};
+
+exports.getSubAreasByCustomersWithSales = async (vendorId, areaId = null) => {
+  try {
+    // Get distinct customer IDs that have sales invoices
+    const customersWithSales = await SalesInvoice.distinct('customerId', { vendorId, isActive: true });
+    
+    // Build query for subAreas
+    let query = {
+      vendorId,
+      isActive: true,
+      _id: { $in: customersWithSales }
+    };
+    
+    if (areaId) {
+      query.customerArea = areaId;
+    }
+    
+    // Get distinct subAreas from customers who have sales
+    const subAreas = await UserCustomers.distinct('customerSubArea', query);
+    
+    // Filter out null values
+    const validSubAreas = subAreas.filter(subArea => subArea);
+    
+    // Populate subArea details
+    const populatedSubAreas = await SubArea.find({
+      vendorId,
+      isActive: true,
+      _id: { $in: validSubAreas }
+    })
+      .select('_id subAreaName areaId')
+      .populate('areaId', 'area')
+      .sort({ subAreaName: 1 });
+    
+    return populatedSubAreas.map(subArea => ({
+      label: subArea.subAreaName,
+      value: subArea._id.toString(),
+      areaId: subArea.areaId._id.toString(),
+      areaName: subArea.areaId.area
+    }));
+  } catch (error) {
+    console.error('Error in getSubAreasByCustomersWithSales:', error);
     throw error;
   }
 }; 

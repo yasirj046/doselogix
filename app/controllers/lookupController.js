@@ -202,3 +202,24 @@ exports.getExpenseCategories = async (req, res) => {
     res.status(200).json(util.createResponse([], error));
   }
 };
+
+exports.getAreasByCustomersWithSales = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const areas = await lookupService.getAreasByCustomersWithSales(vendorId);
+    res.status(200).json(util.createResponse(areas, null, "Areas by Customers with Sales"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};
+
+exports.getSubAreasByCustomersWithSales = async (req, res) => {
+  try {
+    const vendorId = req.vendor.id;
+    const { areaId } = req.query;
+    const subAreas = await lookupService.getSubAreasByCustomersWithSales(vendorId, areaId);
+    res.status(200).json(util.createResponse(subAreas, null, "Sub Areas by Customers with Sales"));
+  } catch (error) {
+    res.status(200).json(util.createResponse([], error));
+  }
+};

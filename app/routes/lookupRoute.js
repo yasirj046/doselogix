@@ -21,7 +21,9 @@ router.get("/all-cities", lookupController.getAllCities);
 
 // Area lookups (require authentication)
 router.get("/areas", authenticate, multiTenancy, lookupController.getAreasByVendor);
+router.get("/areas-by-customers-sales", authenticate, multiTenancy, lookupController.getAreasByCustomersWithSales);
 router.get("/subareas", authenticate, multiTenancy, lookupController.getSubAreasByArea);
+router.get("/subareas-by-customers-sales", authenticate, multiTenancy, lookupController.getSubAreasByCustomersWithSales);
 
 // Product-related lookups (require authentication)
 router.get("/brands", authenticate, multiTenancy, lookupController.getBrandsByVendor);
