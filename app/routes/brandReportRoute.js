@@ -7,14 +7,12 @@ const { multiTenancy } = require('../middleware/multiTenancyMiddleware');
 // Apply authentication middleware to all routes
 router.use(authenticate);
 
-
 /**
  * GET /api/reports/brands
  * Get summary report for all brands
  * Query params: startDate, endDate (optional)
  */
 router.get('/', multiTenancy, brandReportController.getBrandsReportSummary);
-
 
 /**
  * GET /api/reports/brands/:brandId

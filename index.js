@@ -24,6 +24,7 @@ const deliveryLogRoutes = require('./app/routes/deliveryLogRoute');
 const customerReportRoutes = require('./app/routes/customerReportRoute');
 const brandReportRoutes = require('./app/routes/brandReportRoute');
 const productReportRoutes = require('./app/routes/productReportRoute');
+const dashboardRoutes = require('./app/routes/dashboardRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 const ledgerCronJob = require('./app/util/ledgerCronJob');
@@ -78,6 +79,7 @@ app.use('/api/delivery-logs', deliveryLogRoutes);
 app.use('/api/reports/customers', customerReportRoutes);
 app.use('/api/reports/brands', brandReportRoutes);
 app.use('/api/reports/products', productReportRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 mongoose
   .connect(

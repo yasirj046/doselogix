@@ -8,30 +8,30 @@ const { multiTenancy } = require('../middleware/multiTenancyMiddleware');
 router.use(authenticate);
 
 // Create a new area
-router.post('/', multiTenancy, areaController.createArea);
+router.post('/', authenticate, multiTenancy, areaController.createArea);
 
 // Get all areas with pagination and filtering
-router.get('/', multiTenancy, areaController.getAllAreas);
+router.get('/', authenticate, multiTenancy, areaController.getAllAreas);
 
 // Get my areas (vendor-specific)
-router.get('/my/areas', multiTenancy, areaController.getMyAreas);
+router.get('/my/areas', authenticate, multiTenancy, areaController.getMyAreas);
 
 // Get areas by vendor with optional filters
-router.get('/vendor/areas', multiTenancy, areaController.getAreasByVendor);
+router.get('/vendor/areas', authenticate, multiTenancy, areaController.getAreasByVendor);
 
 // Get areas by name pattern
-router.get('/search/:area', multiTenancy, areaController.getAreasByName);
+router.get('/search/:area', authenticate, multiTenancy, areaController.getAreasByName);
 
 // Get a single area by ID
-router.get('/:id', multiTenancy, areaController.getAreaById);
+router.get('/:id', authenticate, multiTenancy, areaController.getAreaById);
 
 // Update an area
-router.put('/:id', multiTenancy, areaController.updateArea);
+router.put('/:id', authenticate, multiTenancy, areaController.updateArea);
 
 // Toggle area status
-router.patch('/:id/toggle-status', multiTenancy, areaController.toggleAreaStatus);
+router.patch('/:id/toggle-status', authenticate, multiTenancy, areaController.toggleAreaStatus);
 
 // Delete an area
-router.delete('/:id', multiTenancy, areaController.deleteArea);
+router.delete('/:id', authenticate, multiTenancy, areaController.deleteArea);
 
 module.exports = router;
