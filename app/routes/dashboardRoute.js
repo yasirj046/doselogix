@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardController');
+const predictionController = require('../controllers/predictionController');
 const { authenticate } = require('../middleware/authMiddleware');
 const { multiTenancy } = require('../middleware/multiTenancyMiddleware');
 
@@ -40,5 +41,11 @@ router.get('/invoice-breakdown', multiTenancy, dashboardController.getInvoiceBre
 
 // GET /api/dashboard/complete - Get all dashboard data in one call (optimized for initial load)
 router.get('/complete', multiTenancy, dashboardController.getCompleteDashboard);
+
+// GET /api/dashboard/sales-prediction - Get ML-based sales prediction for a product
+router.get('/sales-prediction', multiTenancy, predictionController.getProductSalesPrediction);
+
+// GET /api/dashboard/products-with-sales - Get list of products with sales history
+router.get('/products-with-sales', multiTenancy, predictionController.getProductsWithSalesHistory);
 
 module.exports = router;

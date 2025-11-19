@@ -25,9 +25,11 @@ const customerReportRoutes = require('./app/routes/customerReportRoute');
 const brandReportRoutes = require('./app/routes/brandReportRoute');
 const productReportRoutes = require('./app/routes/productReportRoute');
 const dashboardRoutes = require('./app/routes/dashboardRoute');
+const healthNewsRoutes = require('./app/routes/healthNewsRoute');
 const cors = require('cors');
 const morgan = require('morgan');
 const ledgerCronJob = require('./app/util/ledgerCronJob');
+const healthNewsCronJob = require('./app/util/healthNewsCronJob');
 
 dotenv.config();
 
@@ -80,6 +82,7 @@ app.use('/api/reports/customers', customerReportRoutes);
 app.use('/api/reports/brands', brandReportRoutes);
 app.use('/api/reports/products', productReportRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/health-news', healthNewsRoutes);
 
 mongoose
   .connect(
@@ -95,6 +98,9 @@ mongoose
     
     // Start ledger cron job
     ledgerCronJob.start();
+    
+    // Start health news cron job
+    healthNewsCronJob.start();
   })
   .catch((error) => console.log(error));
 

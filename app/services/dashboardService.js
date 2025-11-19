@@ -16,6 +16,40 @@ const mongoose = require('mongoose');
 
 class DashboardService {
   /**
+   * Build a date filter object for aggregation $match stages.
+   * Supports four modes:
+   * - both startDate and endDate provided: { field: { $gte: start, $lte: end } }
+   * - only startDate provided: { field: { $gte: start } }
+   * - only endDate provided: { field: { $lte: end } }
+   * - neither provided: returns {}
+   *
+   * fieldPath can be a dotted path like 'invoice.date' or 'date'
+   */
+  buildDateFilter(fieldPath, startDate, endDate) {
+    const filter = {};
+    // Normalize start to start of day and end to end of day to make date
+    // selections inclusive for date-only inputs (e.g., '2025-11-18').
+    let s = null;
+    let e = null;
+    if (startDate) {
+      s = new Date(startDate);
+      s.setHours(0, 0, 0, 0);
+    }
+    if (endDate) {
+      e = new Date(endDate);
+      e.setHours(23, 59, 59, 999);
+    }
+
+    if (s && e) {
+      filter[fieldPath] = { $gte: s, $lte: e };
+    } else if (s) {
+      filter[fieldPath] = { $gte: s };
+    } else if (e) {
+      filter[fieldPath] = { $lte: e };
+    }
+    return filter;
+  }
+  /**
    * Get summary cards data
    */
   async getSummaryCards(vendorId) {
@@ -160,13 +194,7 @@ class DashboardService {
    * Get brand-wise sales data
    */
   async getBrandWiseSales(vendorId, startDate, endDate, limit = 10) {
-    const dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter['invoice.date'] = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
+    const dateFilter = this.buildDateFilter('invoice.date', startDate, endDate);
 
     const brandSalesAgg = await SalesProduct.aggregate([
       {
@@ -246,13 +274,7 @@ class DashboardService {
    * Get top selling products
    */
   async getTopSellingProducts(vendorId, startDate, endDate, limit = 5) {
-    const dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter['invoice.date'] = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
+    const dateFilter = this.buildDateFilter('invoice.date', startDate, endDate);
 
     // Get total sales for contribution calculation
     const totalSalesAgg = await SalesProduct.aggregate([
@@ -645,13 +667,7 @@ class DashboardService {
    * Get area-wise sales
    */
   async getAreaWiseSales(vendorId, startDate, endDate, limit = 10) {
-    const dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
+    const dateFilter = this.buildDateFilter('date', startDate, endDate);
 
     const areaWiseSalesAgg = await SalesInvoice.aggregate([
       {
@@ -715,13 +731,7 @@ class DashboardService {
    * Get invoice breakdown (cash vs credit)
    */
   async getInvoiceBreakdown(vendorId, startDate, endDate) {
-    const dateFilter = {};
-    if (startDate && endDate) {
-      dateFilter.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
-      };
-    }
+    const dateFilter = this.buildDateFilter('date', startDate, endDate);
 
     const breakdownAgg = await SalesInvoice.aggregate([
       {
@@ -792,8 +802,11 @@ class DashboardService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const defaultStartDate = startDate || today.toISOString();
-    const defaultEndDate = endDate || tomorrow.toISOString();
+  // Keep startDate/endDate as provided. If undefined/null, methods will treat
+  // that as "no date filter". This supports: both dates, start-only,
+  // end-only, or neither.
+  const defaultStartDate = startDate || null;
+  const defaultEndDate = endDate || null;
 
     // Execute all queries in parallel
     const [
@@ -807,7 +820,7 @@ class DashboardService {
       invoiceBreakdown
     ] = await Promise.all([
       this.getSummaryCards(vendorId),
-      this.getBrandWiseSales(vendorId, defaultStartDate, defaultEndDate, 10),
+  this.getBrandWiseSales(vendorId, defaultStartDate, defaultEndDate, 10),
       this.getTopSellingProducts(vendorId, defaultStartDate, defaultEndDate, 5),
       this.getReceivablesAging(vendorId),
       this.getStockAlerts(vendorId, 20),
@@ -820,7 +833,8 @@ class DashboardService {
       summaryCards,
       brandWiseSales,
       topProducts: topProducts.products,
-      receivablesAging: receivablesAging.aging,
+  // receivablesAging returns { invoices, totalReceivables, count }
+  receivablesAging: receivablesAging.invoices,
       stockAlerts,
       nearExpiry,
       areaWiseSales,
